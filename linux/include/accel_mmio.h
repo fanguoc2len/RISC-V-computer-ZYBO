@@ -74,6 +74,7 @@
 #define NPU_MODEL_BUILTIN_1    0x01u
 #define NPU_MODEL_BUILTIN_2    0x02u
 #define NPU_MODEL_RUNTIME      0x80u
+#define NPU_MODEL_RUNTIME_MLP  0x81u
 
 #define GPU_CMD_CLEAR          0x00000001u
 #define GPU_CMD_DRAW_TRI       0x00000002u

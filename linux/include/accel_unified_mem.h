@@ -38,6 +38,8 @@ typedef struct {
     uint32_t logit0;
     uint32_t logit1;
     uint32_t class_id;
+    uint32_t hidden0;
+    uint32_t hidden1;
 } accel_umem_npu_output_t;
 
 #endif

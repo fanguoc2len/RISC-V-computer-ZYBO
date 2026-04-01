@@ -86,14 +86,15 @@ Unified memory da co o 2 tang:
    - `accel_cmdq_desc_decode_stub.v` boc tach `opcode/args`
    - `accel_cmdq_dispatch_stub.v` phan loai `GPU/NPU`
    - nhanh `GPU` da co mux dau tien vao `gpu3d_lite_stub`
-   - nhanh `NPU` hien moi dung o muc dispatch debug cho den khi co payload fetch that
+   - nhanh `NPU` da co them `accel_npu_payload_fetch_stub.v`, `accel_npu_cmd_exec_stub.v`, va `accel_npu_result_store_stub.v` de doc payload tu unified memory, launch vao `npu_v2_stub`, roi commit output payload thanh AXI write burst
+   - `accel_umem_axi_read_arbiter_stub.v` da scaffold viec chia se `M_AXI_UMEM` read channel giua descriptor fetch va NPU payload fetch
 
 ## Chua xong
 
 Nhung phan con lai de unified memory thanh duong hardware that:
 
 - `PL` can AXI master hoac `AXI DMA` de truy cap DDR that
-- NPU/GPU can bo phan fetch/store thep offset thay vi chi la register-level stub
+- NPU/GPU can bo phan fetch/store that hon nua thay vi chi dung read/write stub hien tai
 - can command processor trong PL doc descriptor tu queue va cap nhat `TAIL/STATUS`
 - can cache / coherency strategy ro rang giua Linux va PL
 

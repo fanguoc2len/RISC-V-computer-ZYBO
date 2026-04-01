@@ -45,6 +45,7 @@ module accel_npu_queue_path_tb;
     wire [31:0] dispatch_error_count;
 
     wire        npu_start_pulse;
+    wire        store_request_pulse;
     wire [7:0]  npu_model_id_exec;
     wire [15:0] npu_seq_length_exec;
     wire [31:0] exec_status;
@@ -58,6 +59,8 @@ module accel_npu_queue_path_tb;
     wire [31:0] npu_logit0;
     wire [31:0] npu_logit1;
     wire [7:0]  npu_class_id;
+    wire [31:0] npu_hidden0;
+    wire [31:0] npu_hidden1;
 
     accel_cmdq_dispatch_stub dispatch_dut (
         .clk(clk),
@@ -108,6 +111,7 @@ module accel_npu_queue_path_tb;
         .npu_busy(npu_busy),
         .npu_done(npu_done),
         .npu_start_pulse(npu_start_pulse),
+        .store_request_pulse(store_request_pulse),
         .npu_model_id_out(npu_model_id_exec),
         .npu_seq_length_out(npu_seq_length_exec),
         .exec_status(exec_status),
@@ -135,7 +139,9 @@ module accel_npu_queue_path_tb;
         .status_word(npu_status_word),
         .logit0(npu_logit0),
         .logit1(npu_logit1),
-        .class_id(npu_class_id)
+        .class_id(npu_class_id),
+        .hidden0(npu_hidden0),
+        .hidden1(npu_hidden1)
     );
 
     always #5 clk = ~clk;
@@ -213,6 +219,11 @@ module accel_npu_queue_path_tb;
         wait (npu_busy == 1'b1);
         wait (npu_done == 1'b1);
         @(posedge clk);
+
+        if (!store_request_pulse) begin
+            $display("FAIL: NPU queue-path did not emit store_request_pulse.");
+            $finish;
+        end
 
         if (dispatch_status !== 32'h0000_0004 || exec_status !== 32'h0001_8004) begin
             $display("FAIL: NPU queue-path status mismatch. dispatch=%08x exec=%08x",

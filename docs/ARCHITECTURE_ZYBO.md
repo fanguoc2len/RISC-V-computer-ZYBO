@@ -53,7 +53,9 @@ Trong moc scaffold hien tai, NPU moi moi o dang:
 - duoc expose qua `accel_mmio_regs.v`
 - co 2 built-in linear model de smoke test nhanh
 - co them runtime-programmable linear model nap qua MMIO
+- co them `accel_npu_payload_fetch_stub.v` de doi `NPU_INFER` queue payload thanh launch payload cho datapath
 - co them `accel_npu_cmd_exec_stub.v` de nhan `NPU_INFER` tu command queue va phat `start/model/seq`
+- co them `accel_npu_result_store_stub.v` de commit `status/logit/class/hidden` thanh AXI write burst ve unified memory
 - san sang de noi vao `PS M_AXI_GP0`
 
 ### 2.3 GPU 3D lite
@@ -129,5 +131,6 @@ Y nghia cua viec tach doi nay:
 - PL co the thay tu stub sang command fetch unit that ma khong doi giao dien Linux
 - block design co the noi `M_AXI_UMEM -> smartconnect -> S_AXI_HP0` de PL fetch descriptor tu `PS DDR`
 - fetch stage va decode stage da duoc tach rieng de ve sau chen command dispatcher / scheduler that
-- GPU branch da co mux dau tien vao `gpu3d_lite_stub`, con NPU branch da di them 1 buoc qua `accel_npu_cmd_exec_stub` de latch offsets va phat `start pulse`
+- GPU branch da co mux dau tien vao `gpu3d_lite_stub`, con NPU branch da di them 3 buoc qua `accel_npu_payload_fetch_stub`, `accel_npu_cmd_exec_stub`, va `accel_npu_result_store_stub`
+- read channel da co `accel_umem_axi_read_arbiter_stub.v` de chia giua descriptor fetch va NPU payload fetch
 - ve sau chi can thay fetch stub bang command processor / DMA that ma khong doi ABI software

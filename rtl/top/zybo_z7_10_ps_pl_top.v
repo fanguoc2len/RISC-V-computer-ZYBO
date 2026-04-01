@@ -164,6 +164,17 @@ module zybo_z7_10_ps_pl_top (
     wire [3:0]  umem_fetch_beat_count;
     wire [255:0] umem_fetch_desc_flat;
     wire [31:0] umem_fetch_desc_word0 = umem_fetch_desc_flat[31:0];
+    wire [31:0] cmdq_axi_araddr;
+    wire [7:0]  cmdq_axi_arlen;
+    wire [2:0]  cmdq_axi_arsize;
+    wire [1:0]  cmdq_axi_arburst;
+    wire        cmdq_axi_arvalid;
+    wire        cmdq_axi_arready;
+    wire [31:0] cmdq_axi_rdata;
+    wire [1:0]  cmdq_axi_rresp;
+    wire        cmdq_axi_rlast;
+    wire        cmdq_axi_rvalid;
+    wire        cmdq_axi_rready;
     wire        cmdq_decode_valid;
     wire [31:0] cmdq_decode_opcode;
     wire [31:0] cmdq_decode_flags;
@@ -187,6 +198,31 @@ module zybo_z7_10_ps_pl_top (
     wire [31:0] cmdq_npu_input_offset;
     wire [31:0] cmdq_npu_weight_offset;
     wire [31:0] cmdq_npu_output_offset;
+    wire        npu_payload_valid;
+    wire [7:0]  npu_payload_model_id;
+    wire [15:0] npu_payload_seq_length;
+    wire [31:0] npu_payload_input_offset;
+    wire [31:0] npu_payload_weight_offset;
+    wire [31:0] npu_payload_output_offset;
+    wire [31:0] npu_payload_input0;
+    wire [31:0] npu_payload_input1;
+    wire [31:0] npu_payload_weight0_a;
+    wire [31:0] npu_payload_weight0_b;
+    wire [31:0] npu_payload_weight1_a;
+    wire [31:0] npu_payload_weight1_b;
+    wire [31:0] npu_payload_bias0;
+    wire [31:0] npu_payload_bias1;
+    wire [31:0] npu_payload_axi_araddr;
+    wire [7:0]  npu_payload_axi_arlen;
+    wire [2:0]  npu_payload_axi_arsize;
+    wire [1:0]  npu_payload_axi_arburst;
+    wire        npu_payload_axi_arvalid;
+    wire        npu_payload_axi_arready;
+    wire [31:0] npu_payload_axi_rdata;
+    wire [1:0]  npu_payload_axi_rresp;
+    wire        npu_payload_axi_rlast;
+    wire        npu_payload_axi_rvalid;
+    wire        npu_payload_axi_rready;
     wire        cmdq_gpu_dispatch_pulse;
     wire [7:0]  cmdq_gpu_cmd_opcode;
     wire [15:0] cmdq_gpu_vertex0_xy;
@@ -201,19 +237,47 @@ module zybo_z7_10_ps_pl_top (
     wire        npu_start_mux;
     wire [7:0]  npu_model_id_mux;
     wire [15:0] npu_seq_length_mux;
+    wire [31:0] npu_input_vec0_mux;
+    wire [31:0] npu_input_vec1_mux;
+    wire [31:0] npu_weight0_a_mux;
+    wire [31:0] npu_weight0_b_mux;
+    wire [31:0] npu_weight1_a_mux;
+    wire [31:0] npu_weight1_b_mux;
+    wire [31:0] npu_bias0_mux;
+    wire [31:0] npu_bias1_mux;
     wire        npu_cmd_exec_start_pulse;
+    wire        npu_store_request_pulse;
     wire [7:0]  npu_cmd_exec_model_id;
     wire [15:0] npu_cmd_exec_seq_length;
     wire [31:0] npu_cmd_exec_status;
     wire [31:0] npu_cmd_exec_input_offset;
     wire [31:0] npu_cmd_exec_weight_offset;
     wire [31:0] npu_cmd_exec_output_offset;
+    wire [31:0] npu_store_status;
+    wire [31:0] npu_store_count;
+    wire [31:0] npu_store_error_count;
+    wire [31:0] npu_store_last_output_offset;
+    wire [31:0] npu_store_last_awaddr;
+    wire [31:0] npu_store_status_word;
+    wire [31:0] npu_store_logit0;
+    wire [31:0] npu_store_logit1;
+    wire [31:0] npu_store_class_word;
     wire        gpu_cmd_valid_mux;
     wire [7:0]  gpu_cmd_opcode_mux;
     wire [15:0] gpu_vertex0_xy_mux;
     wire [15:0] gpu_vertex1_xy_mux;
     wire [15:0] gpu_vertex2_xy_mux;
     wire [7:0]  gpu_clear_value_mux;
+    wire [31:0] umem_axi_awaddr_int;
+    wire [7:0]  umem_axi_awlen_int;
+    wire [2:0]  umem_axi_awsize_int;
+    wire [1:0]  umem_axi_awburst_int;
+    wire        umem_axi_awvalid_int;
+    wire [31:0] umem_axi_wdata_int;
+    wire [3:0]  umem_axi_wstrb_int;
+    wire        umem_axi_wlast_int;
+    wire        umem_axi_wvalid_int;
+    wire        umem_axi_bready_int;
     wire [31:0] umem_axi_araddr_int;
     wire [7:0]  umem_axi_arlen_int;
     wire [2:0]  umem_axi_arsize_int;
@@ -226,6 +290,8 @@ module zybo_z7_10_ps_pl_top (
     wire [31:0] npu_logit0;
     wire [31:0] npu_logit1;
     wire [7:0]  npu_class_id;
+    wire [31:0] npu_hidden0;
+    wire [31:0] npu_hidden1;
 
     wire        gpu_cmd_pulse;
     wire [7:0]  gpu_cmd_opcode;
@@ -362,20 +428,22 @@ module zybo_z7_10_ps_pl_top (
         .start       (npu_start_mux),
         .model_id    (npu_model_id_mux),
         .seq_length  (npu_seq_length_mux),
-        .input_vec0  (npu_input_vec0),
-        .input_vec1  (npu_input_vec1),
-        .runtime_weight0_a (npu_weight0_a),
-        .runtime_weight0_b (npu_weight0_b),
-        .runtime_weight1_a (npu_weight1_a),
-        .runtime_weight1_b (npu_weight1_b),
-        .runtime_bias0 (npu_bias0),
-        .runtime_bias1 (npu_bias1),
+        .input_vec0  (npu_input_vec0_mux),
+        .input_vec1  (npu_input_vec1_mux),
+        .runtime_weight0_a (npu_weight0_a_mux),
+        .runtime_weight0_b (npu_weight0_b_mux),
+        .runtime_weight1_a (npu_weight1_a_mux),
+        .runtime_weight1_b (npu_weight1_b_mux),
+        .runtime_bias0 (npu_bias0_mux),
+        .runtime_bias1 (npu_bias1_mux),
         .busy        (npu_busy),
         .done        (npu_done),
         .status_word (npu_status_word),
         .logit0      (npu_logit0),
         .logit1      (npu_logit1),
-        .class_id    (npu_class_id)
+        .class_id    (npu_class_id),
+        .hidden0     (npu_hidden0),
+        .hidden1     (npu_hidden1)
     );
 
     gpu3d_lite_stub gpu3d_i (
@@ -434,17 +502,17 @@ module zybo_z7_10_ps_pl_top (
         .last_sequence  (umem_fetch_last_sequence),
         .beat_count     (umem_fetch_beat_count),
         .desc_data_flat (umem_fetch_desc_flat),
-        .m_axi_araddr   (umem_axi_araddr_int),
-        .m_axi_arlen    (umem_axi_arlen_int),
-        .m_axi_arsize   (umem_axi_arsize_int),
-        .m_axi_arburst  (umem_axi_arburst_int),
-        .m_axi_arvalid  (umem_axi_arvalid_int),
-        .m_axi_arready  (m_axi_umem_arready),
-        .m_axi_rdata    (m_axi_umem_rdata),
-        .m_axi_rresp    (m_axi_umem_rresp),
-        .m_axi_rlast    (m_axi_umem_rlast),
-        .m_axi_rvalid   (m_axi_umem_rvalid),
-        .m_axi_rready   (umem_axi_rready_int)
+        .m_axi_araddr   (cmdq_axi_araddr),
+        .m_axi_arlen    (cmdq_axi_arlen),
+        .m_axi_arsize   (cmdq_axi_arsize),
+        .m_axi_arburst  (cmdq_axi_arburst),
+        .m_axi_arvalid  (cmdq_axi_arvalid),
+        .m_axi_arready  (cmdq_axi_arready),
+        .m_axi_rdata    (cmdq_axi_rdata),
+        .m_axi_rresp    (cmdq_axi_rresp),
+        .m_axi_rlast    (cmdq_axi_rlast),
+        .m_axi_rvalid   (cmdq_axi_rvalid),
+        .m_axi_rready   (cmdq_axi_rready)
     );
 
     accel_cmdq_desc_decode_stub cmdq_decode_i (
@@ -509,19 +577,107 @@ module zybo_z7_10_ps_pl_top (
         .dispatch_error_count(cmdq_dispatch_error_count)
     );
 
-    accel_npu_cmd_exec_stub npu_cmd_exec_i (
+    accel_npu_payload_fetch_stub npu_payload_fetch_i (
         .clk              (pl_clk0),
         .resetn           (pl_resetn0),
         .enable           (umem_ctrl[3]),
+        .umem_base_addr   (umem_base_addr),
         .dispatch_valid   (cmdq_npu_dispatch_pulse),
         .model_id_in      (cmdq_npu_model_id),
         .seq_length_in    (cmdq_npu_seq_length),
         .input_offset_in  (cmdq_npu_input_offset),
         .weight_offset_in (cmdq_npu_weight_offset),
         .output_offset_in (cmdq_npu_output_offset),
+        .shadow_input0    (npu_input_vec0),
+        .shadow_input1    (npu_input_vec1),
+        .shadow_weight0_a (npu_weight0_a),
+        .shadow_weight0_b (npu_weight0_b),
+        .shadow_weight1_a (npu_weight1_a),
+        .shadow_weight1_b (npu_weight1_b),
+        .shadow_bias0     (npu_bias0),
+        .shadow_bias1     (npu_bias1),
+        .payload_valid    (npu_payload_valid),
+        .model_id_out     (npu_payload_model_id),
+        .seq_length_out   (npu_payload_seq_length),
+        .input_offset_out (npu_payload_input_offset),
+        .weight_offset_out(npu_payload_weight_offset),
+        .output_offset_out(npu_payload_output_offset),
+        .fetched_input0   (npu_payload_input0),
+        .fetched_input1   (npu_payload_input1),
+        .fetched_weight0_a(npu_payload_weight0_a),
+        .fetched_weight0_b(npu_payload_weight0_b),
+        .fetched_weight1_a(npu_payload_weight1_a),
+        .fetched_weight1_b(npu_payload_weight1_b),
+        .fetched_bias0    (npu_payload_bias0),
+        .fetched_bias1    (npu_payload_bias1),
+        .fetch_status     (),
+        .fetch_count      (),
+        .fetch_error_count(),
+        .m_axi_araddr     (npu_payload_axi_araddr),
+        .m_axi_arlen      (npu_payload_axi_arlen),
+        .m_axi_arsize     (npu_payload_axi_arsize),
+        .m_axi_arburst    (npu_payload_axi_arburst),
+        .m_axi_arvalid    (npu_payload_axi_arvalid),
+        .m_axi_arready    (npu_payload_axi_arready),
+        .m_axi_rdata      (npu_payload_axi_rdata),
+        .m_axi_rresp      (npu_payload_axi_rresp),
+        .m_axi_rlast      (npu_payload_axi_rlast),
+        .m_axi_rvalid     (npu_payload_axi_rvalid),
+        .m_axi_rready     (npu_payload_axi_rready)
+    );
+
+    accel_umem_axi_read_arbiter_stub umem_read_arbiter_i (
+        .clk              (pl_clk0),
+        .resetn           (pl_resetn0),
+        .desc_m_axi_araddr(cmdq_axi_araddr),
+        .desc_m_axi_arlen (cmdq_axi_arlen),
+        .desc_m_axi_arsize(cmdq_axi_arsize),
+        .desc_m_axi_arburst(cmdq_axi_arburst),
+        .desc_m_axi_arvalid(cmdq_axi_arvalid),
+        .desc_m_axi_arready(cmdq_axi_arready),
+        .desc_m_axi_rdata (cmdq_axi_rdata),
+        .desc_m_axi_rresp (cmdq_axi_rresp),
+        .desc_m_axi_rlast (cmdq_axi_rlast),
+        .desc_m_axi_rvalid(cmdq_axi_rvalid),
+        .desc_m_axi_rready(cmdq_axi_rready),
+        .npu_m_axi_araddr (npu_payload_axi_araddr),
+        .npu_m_axi_arlen  (npu_payload_axi_arlen),
+        .npu_m_axi_arsize (npu_payload_axi_arsize),
+        .npu_m_axi_arburst(npu_payload_axi_arburst),
+        .npu_m_axi_arvalid(npu_payload_axi_arvalid),
+        .npu_m_axi_arready(npu_payload_axi_arready),
+        .npu_m_axi_rdata  (npu_payload_axi_rdata),
+        .npu_m_axi_rresp  (npu_payload_axi_rresp),
+        .npu_m_axi_rlast  (npu_payload_axi_rlast),
+        .npu_m_axi_rvalid (npu_payload_axi_rvalid),
+        .npu_m_axi_rready (npu_payload_axi_rready),
+        .m_axi_araddr     (umem_axi_araddr_int),
+        .m_axi_arlen      (umem_axi_arlen_int),
+        .m_axi_arsize     (umem_axi_arsize_int),
+        .m_axi_arburst    (umem_axi_arburst_int),
+        .m_axi_arvalid    (umem_axi_arvalid_int),
+        .m_axi_arready    (m_axi_umem_arready),
+        .m_axi_rdata      (m_axi_umem_rdata),
+        .m_axi_rresp      (m_axi_umem_rresp),
+        .m_axi_rlast      (m_axi_umem_rlast),
+        .m_axi_rvalid     (m_axi_umem_rvalid),
+        .m_axi_rready     (umem_axi_rready_int)
+    );
+
+    accel_npu_cmd_exec_stub npu_cmd_exec_i (
+        .clk              (pl_clk0),
+        .resetn           (pl_resetn0),
+        .enable           (umem_ctrl[3]),
+        .dispatch_valid   (npu_payload_valid),
+        .model_id_in      (npu_payload_model_id),
+        .seq_length_in    (npu_payload_seq_length),
+        .input_offset_in  (npu_payload_input_offset),
+        .weight_offset_in (npu_payload_weight_offset),
+        .output_offset_in (npu_payload_output_offset),
         .npu_busy         (npu_busy),
         .npu_done         (npu_done),
         .npu_start_pulse  (npu_cmd_exec_start_pulse),
+        .store_request_pulse (npu_store_request_pulse),
         .npu_model_id_out (npu_cmd_exec_model_id),
         .npu_seq_length_out(npu_cmd_exec_seq_length),
         .exec_status      (npu_cmd_exec_status),
@@ -530,9 +686,57 @@ module zybo_z7_10_ps_pl_top (
         .last_output_offset(npu_cmd_exec_output_offset)
     );
 
+    accel_npu_result_store_stub npu_result_store_i (
+        .clk              (pl_clk0),
+        .resetn           (pl_resetn0),
+        .enable           (umem_ctrl[3]),
+        .store_request_valid (npu_store_request_pulse),
+        .umem_base_addr   (umem_base_addr),
+        .output_offset_in (npu_cmd_exec_output_offset),
+        .status_word_in   (npu_status_word),
+        .logit0_in        (npu_logit0),
+        .logit1_in        (npu_logit1),
+        .class_id_in      (npu_class_id),
+        .hidden0_in       (npu_hidden0),
+        .hidden1_in       (npu_hidden1),
+        .store_status     (npu_store_status),
+        .store_count      (npu_store_count),
+        .store_error_count(npu_store_error_count),
+        .last_output_offset(npu_store_last_output_offset),
+        .last_awaddr      (npu_store_last_awaddr),
+        .stored_status_word(npu_store_status_word),
+        .stored_logit0    (npu_store_logit0),
+        .stored_logit1    (npu_store_logit1),
+        .stored_class_word(npu_store_class_word),
+        .stored_hidden0   (),
+        .stored_hidden1   (),
+        .m_axi_awaddr     (umem_axi_awaddr_int),
+        .m_axi_awlen      (umem_axi_awlen_int),
+        .m_axi_awsize     (umem_axi_awsize_int),
+        .m_axi_awburst    (umem_axi_awburst_int),
+        .m_axi_awvalid    (umem_axi_awvalid_int),
+        .m_axi_awready    (m_axi_umem_awready),
+        .m_axi_wdata      (umem_axi_wdata_int),
+        .m_axi_wstrb      (umem_axi_wstrb_int),
+        .m_axi_wlast      (umem_axi_wlast_int),
+        .m_axi_wvalid     (umem_axi_wvalid_int),
+        .m_axi_wready     (m_axi_umem_wready),
+        .m_axi_bresp      (m_axi_umem_bresp),
+        .m_axi_bvalid     (m_axi_umem_bvalid),
+        .m_axi_bready     (umem_axi_bready_int)
+    );
+
     assign npu_start_mux = npu_start_pulse | npu_cmd_exec_start_pulse;
     assign npu_model_id_mux = npu_cmd_exec_start_pulse ? npu_cmd_exec_model_id : npu_model_id;
     assign npu_seq_length_mux = npu_cmd_exec_start_pulse ? npu_cmd_exec_seq_length : npu_seq_length;
+    assign npu_input_vec0_mux = npu_cmd_exec_start_pulse ? npu_payload_input0 : npu_input_vec0;
+    assign npu_input_vec1_mux = npu_cmd_exec_start_pulse ? npu_payload_input1 : npu_input_vec1;
+    assign npu_weight0_a_mux = npu_cmd_exec_start_pulse ? npu_payload_weight0_a : npu_weight0_a;
+    assign npu_weight0_b_mux = npu_cmd_exec_start_pulse ? npu_payload_weight0_b : npu_weight0_b;
+    assign npu_weight1_a_mux = npu_cmd_exec_start_pulse ? npu_payload_weight1_a : npu_weight1_a;
+    assign npu_weight1_b_mux = npu_cmd_exec_start_pulse ? npu_payload_weight1_b : npu_weight1_b;
+    assign npu_bias0_mux = npu_cmd_exec_start_pulse ? npu_payload_bias0 : npu_bias0;
+    assign npu_bias1_mux = npu_cmd_exec_start_pulse ? npu_payload_bias1 : npu_bias1;
     assign gpu_cmd_valid_mux = gpu_cmd_pulse | cmdq_gpu_dispatch_pulse;
     assign gpu_cmd_opcode_mux = cmdq_gpu_dispatch_pulse ? cmdq_gpu_cmd_opcode : gpu_cmd_opcode;
     assign gpu_vertex0_xy_mux = cmdq_gpu_dispatch_pulse ? cmdq_gpu_vertex0_xy : gpu_vertex0_xy;
@@ -540,19 +744,19 @@ module zybo_z7_10_ps_pl_top (
     assign gpu_vertex2_xy_mux = cmdq_gpu_dispatch_pulse ? cmdq_gpu_vertex2_xy : gpu_vertex2_xy;
     assign gpu_clear_value_mux = cmdq_gpu_dispatch_pulse ? cmdq_gpu_clear_value : gpu_clear_value;
 
-    assign m_axi_umem_awaddr = 32'h0000_0000;
-    assign m_axi_umem_awlen = 8'h00;
-    assign m_axi_umem_awsize = 3'b010;
-    assign m_axi_umem_awburst = 2'b01;
+    assign m_axi_umem_awaddr = umem_axi_awaddr_int;
+    assign m_axi_umem_awlen = umem_axi_awlen_int;
+    assign m_axi_umem_awsize = umem_axi_awsize_int;
+    assign m_axi_umem_awburst = umem_axi_awburst_int;
     assign m_axi_umem_awprot = 3'b000;
     assign m_axi_umem_awcache = 4'b0011;
     assign m_axi_umem_awlock = 1'b0;
-    assign m_axi_umem_awvalid = 1'b0;
-    assign m_axi_umem_wdata = 32'h0000_0000;
-    assign m_axi_umem_wstrb = 4'h0;
-    assign m_axi_umem_wlast = 1'b1;
-    assign m_axi_umem_wvalid = 1'b0;
-    assign m_axi_umem_bready = 1'b1;
+    assign m_axi_umem_awvalid = umem_axi_awvalid_int;
+    assign m_axi_umem_wdata = umem_axi_wdata_int;
+    assign m_axi_umem_wstrb = umem_axi_wstrb_int;
+    assign m_axi_umem_wlast = umem_axi_wlast_int;
+    assign m_axi_umem_wvalid = umem_axi_wvalid_int;
+    assign m_axi_umem_bready = umem_axi_bready_int;
     assign m_axi_umem_araddr = umem_axi_araddr_int;
     assign m_axi_umem_arlen = umem_axi_arlen_int;
     assign m_axi_umem_arsize = umem_axi_arsize_int;

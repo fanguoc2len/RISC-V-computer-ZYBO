@@ -58,6 +58,17 @@ def runtime_demo_weights() -> tuple[list[int], list[int], list[int], list[int], 
     )
 
 
+def runtime_mlp_demo_weights() -> tuple[list[int], list[int], list[int], list[int], int, int]:
+    return (
+        [2, 0, 2, 0],
+        [2, 0, 2, 0],
+        [0, 2, 0, 2],
+        [0, 2, 0, 2],
+        -8,
+        -8,
+    )
+
+
 def dot(lhs: list[int], rhs: list[int]) -> int:
     return sum(a * b for a, b in zip(lhs, rhs))
 
@@ -75,11 +86,23 @@ def run_reference(
         w0a, w0b, w1a, w1b, bias0, bias1 = model_weights(model_id)
     else:
         w0a, w0b, w1a, w1b, bias0, bias1 = custom_weights
-    logit0 = dot(vec0, w0a) + dot(vec1, w0b) + bias0
-    logit1 = dot(vec0, w1a) + dot(vec1, w1b) + bias1
+    linear0 = dot(vec0, w0a) + dot(vec1, w0b) + bias0
+    linear1 = dot(vec0, w1a) + dot(vec1, w1b) + bias1
+    if model_id == 0x81:
+        hidden0 = max(0, linear0)
+        hidden1 = max(0, linear1)
+        logit0 = hidden0 - hidden1
+        logit1 = hidden1 - hidden0
+    else:
+        hidden0 = linear0
+        hidden1 = linear1
+        logit0 = linear0
+        logit1 = linear1
     class_id = 1 if logit1 > logit0 else 0
     status_word = (0x4E << 24) | (class_id << 16) | ((model_id & 0xFF) << 8) | (seq_length & 0xFF)
     return {
+        "hidden0": hidden0,
+        "hidden1": hidden1,
         "logit0": logit0,
         "logit1": logit1,
         "class_id": class_id,
@@ -108,6 +131,7 @@ def main() -> int:
     parser.add_argument("--input0", type=parse_word, default=parse_word("0x04030201"), help="packed int8x4 word 0")
     parser.add_argument("--input1", type=parse_word, default=parse_word("0x00000000"), help="packed int8x4 word 1")
     parser.add_argument("--runtime-demo", action="store_true", help="use the built-in runtime-MMIO demo weights")
+    parser.add_argument("--runtime-mlp-demo", action="store_true", help="use the built-in runtime MLP demo weights")
     parser.add_argument("--w0a", type=parse_vec4, help="custom class0 weights for input0, comma-separated")
     parser.add_argument("--w0b", type=parse_vec4, help="custom class0 weights for input1, comma-separated")
     parser.add_argument("--w1a", type=parse_vec4, help="custom class1 weights for input0, comma-separated")
@@ -121,6 +145,9 @@ def main() -> int:
     if args.runtime_demo:
         custom_weights = runtime_demo_weights()
         args.model = 0x80
+    elif args.runtime_mlp_demo:
+        custom_weights = runtime_mlp_demo_weights()
+        args.model = 0x81
     elif any(value is not None for value in (args.w0a, args.w0b, args.w1a, args.w1b)):
         if None in (args.w0a, args.w0b, args.w1a, args.w1b):
             parser.error("custom mode needs --w0a --w0b --w1a --w1b together")
@@ -132,6 +159,8 @@ def main() -> int:
     print(f"seq_length  = {args.seq_length}")
     print(f"input0      = 0x{args.input0:08X} -> {unpack_i8x4(args.input0)}")
     print(f"input1      = 0x{args.input1:08X} -> {unpack_i8x4(args.input1)}")
+    print(f"hidden0     = {result['hidden0']}")
+    print(f"hidden1     = {result['hidden1']}")
     print(f"logit0      = {result['logit0']}")
     print(f"logit1      = {result['logit1']}")
     print(f"class_id    = {result['class_id']}")

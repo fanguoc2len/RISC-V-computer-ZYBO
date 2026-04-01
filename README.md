@@ -46,7 +46,8 @@ Moc hien tai la `foundation scaffold` cho project Zybo:
 - da co unified-memory ABI dau tien giua NPU/GPU tren host emulation + MMIO bridge
 - da co unified command queue trong shared memory voi `HEAD/TAIL/DOORBELL` va descriptor flow `GPU_CLEAR -> GPU_DRAW_TRI -> NPU_INFER`
 - da co hardware scaffold `command queue frontend -> AXI read fetch stub` cho unified-memory path trong PL
-- da co `dispatch stub` sau decode, nhanh GPU da duoc mux vao `gpu3d_lite_stub`, va nhanh NPU da di them 1 buoc qua `accel_npu_cmd_exec_stub`
+- da co `dispatch stub` sau decode, nhanh GPU da duoc mux vao `gpu3d_lite_stub`, va nhanh NPU da di them 3 tang qua `accel_npu_payload_fetch_stub` + `accel_npu_cmd_exec_stub` + `accel_npu_result_store_stub`
+- da co read-arbiter scaffold de chia se `M_AXI_UMEM` giua descriptor fetch va NPU payload fetch
 
 Nhung thu chua xong trong moc nay:
 
@@ -63,9 +64,12 @@ Nhung thu chua xong trong moc nay:
 - `rtl/accel/accel_mmio_regs.v`: AXI-Lite bridge tu PS sang accelerator regs
 - `rtl/accel/accel_cmdq_frontend_stub.v`: command-queue frontend scaffold cho PL
 - `rtl/accel/accel_umem_axi_fetch_stub.v`: AXI read-fetch scaffold cho descriptor trong unified memory
+- `rtl/accel/accel_umem_axi_read_arbiter_stub.v`: arbiter cho read channel giua descriptor fetch va NPU payload fetch
 - `rtl/accel/accel_cmdq_desc_decode_stub.v`: descriptor decode scaffold sau fetch stage
 - `rtl/accel/accel_cmdq_dispatch_stub.v`: command dispatcher scaffold tu decode sang NPU/GPU
+- `rtl/accel/accel_npu_payload_fetch_stub.v`: payload-fetch scaffold cho `NPU_INFER` doc `input + weights/bias` tu unified memory qua AXI read path
 - `rtl/accel/accel_npu_cmd_exec_stub.v`: NPU execute stub sau dispatcher de phat `start/model/seq` va debug offsets
+- `rtl/accel/accel_npu_result_store_stub.v`: NPU writeback scaffold de commit `status/logit/class/hidden` ra unified-memory AXI write path
 - `rtl/soc/`: legacy PicoRV32 subsystem de tai su dung
 - `linux/README.md`: ke hoach boot Linux tren PS
 - `docs/ARCHITECTURE_ZYBO.md`: kien truc muc tieu
@@ -78,8 +82,13 @@ Nhung thu chua xong trong moc nay:
 - `scripts/run_vivado_zybo_umem_axi_fetch_sim.tcl`: test rieng AXI fetch stub
 - `scripts/run_vivado_zybo_cmdq_decode_sim.tcl`: test rieng descriptor decode stub
 - `scripts/run_vivado_zybo_cmdq_dispatch_sim.tcl`: test rieng dispatch stub
+- `scripts/run_vivado_zybo_npu_payload_fetch_sim.tcl`: test rieng NPU payload fetch stub
 - `scripts/run_vivado_zybo_npu_exec_sim.tcl`: test rieng NPU execute stub
+- `scripts/run_vivado_zybo_npu_result_store_sim.tcl`: test rieng NPU result store stub
 - `scripts/run_vivado_zybo_npu_queue_path_sim.tcl`: test rieng chuoi `dispatch -> exec -> npu_v2`
+- `scripts/run_vivado_zybo_npu_queue_payload_path_sim.tcl`: test rieng chuoi `dispatch -> payload fetch -> exec -> npu_v2`
+- `scripts/run_vivado_zybo_npu_queue_writeback_path_sim.tcl`: test rieng chuoi `dispatch -> payload fetch -> exec -> npu_v2 -> result store`
+- `scripts/run_vivado_zybo_npu_queue_runtime_mlp_sim.tcl`: test rieng chuoi queue-driven `model 0x81` voi payload fetch + writeback day du
 - `scripts/export_zybo_ps_xsa.tcl`: build PS/PL platform va export `XSA` cho Linux flow
 - `linux/petalinux/README.md`: cac manh ghep handoff tu `XSA` sang `PetaLinux`
 - `linux/uio/accel_cmdq_host.c`: host-side producer library cho unified command queue
@@ -138,6 +147,7 @@ Bench `accel_mmio_regs_tb` se tu check:
 - clear + draw triangle cho `GPU 3D lite`
 - `pixel_count`, `area2`, `bbox`, va framebuffer rows mau
 - runtime-model NPU voi weights/bias duoc nap tu software
+- runtime MLP mode `0x81` voi hidden activation trong host emulation
 - snapshot register map dau tien giua `PS` va `PL`
 
 Neu muon test rieng command-queue frontend stub trong Vivado simulation, dung:
@@ -190,6 +200,18 @@ Bench nay kiem tra:
 - dispatch `NPU_INFER`
 - latch invalid-opcode error va dispatch counters
 
+Neu muon test rieng NPU payload fetch stub trong Vivado simulation, dung:
+
+```tcl
+source scripts/run_vivado_zybo_npu_payload_fetch_sim.tcl
+```
+
+Bench nay kiem tra:
+
+- latch `model_id`, `seq_length`, `input/weight/output offset`
+- doc 2 burst AXI tu unified memory: `input` roi `weights/bias`
+- `fetch_count = 1`, `fetch_status = IDLE` sau 1 lenh `NPU_INFER`
+
 Neu muon test rieng NPU execute stub trong Vivado simulation, dung:
 
 ```tcl
@@ -203,6 +225,19 @@ Bench nay kiem tra:
 - `exec_status = 0x00018004` sau lan runtime-model dau tien
 - sticky error khi co dispatch moi trong luc NPU dang ban
 
+Neu muon test rieng NPU result store stub trong Vivado simulation, dung:
+
+```tcl
+source scripts/run_vivado_zybo_npu_result_store_sim.tcl
+```
+
+Bench nay kiem tra:
+
+- `status/logit0/logit1/class/hidden0/hidden1` duoc latch thanh output payload `6 x 32-bit`
+- `AWADDR = UMEM_BASE + output_offset`, `AWLEN = 5`
+- burst write `6 beat` tren AXI write channel
+- `store_status = 0x00010004` sau lan writeback queue-driven dau tien
+
 Neu muon test rieng NPU queue path trong Vivado simulation, dung:
 
 ```tcl
@@ -215,6 +250,43 @@ Bench nay kiem tra:
 - offset `input/weight/output` duoc latch dung
 - runtime model `0x80` cho ra `STATUS=0x4E008008`, `LOGIT0=20`, `LOGIT1=0`
 - `exec_status = 0x00018004` sau queue-driven launch dau tien
+
+Neu muon test rieng NPU queue payload path trong Vivado simulation, dung:
+
+```tcl
+source scripts/run_vivado_zybo_npu_queue_payload_path_sim.tcl
+```
+
+Bench nay kiem tra:
+
+- `NPU_INFER` di qua `dispatch -> payload fetch -> exec -> npu_v2`
+- payload `input/weight/bias` duoc doc tu unified memory qua AXI read path roi moi vao datapath queue-driven
+- runtime model `0x80` van cho ra `STATUS=0x4E008008`, `LOGIT0=20`, `LOGIT1=0`
+
+Neu muon test rieng NPU queue writeback path trong Vivado simulation, dung:
+
+```tcl
+source scripts/run_vivado_zybo_npu_queue_writeback_path_sim.tcl
+```
+
+Bench nay kiem tra:
+
+- `NPU_INFER` di tron duong `dispatch -> payload fetch -> exec -> npu_v2 -> result store`
+- output payload `status/logit0/logit1/class/hidden0/hidden1` duoc commit thanh `6 beat` AXI write burst
+- `store_last_awaddr = 0x10000480` va `store_status = 0x00010004`
+
+Neu muon test rieng NPU queue runtime-MLP path trong Vivado simulation, dung:
+
+```tcl
+source scripts/run_vivado_zybo_npu_queue_runtime_mlp_sim.tcl
+```
+
+Bench nay kiem tra:
+
+- `model_id = 0x81` di tron duong `dispatch -> payload fetch -> exec -> npu_v2 -> result store`
+- runtime payload `input/weights/bias` duoc doc tu unified memory qua AXI read path
+- ket qua `hidden0=12`, `hidden1=0`, `logit0=12`, `logit1=-12`
+- output payload `status/logit0/logit1/class/hidden0/hidden1` duoc commit thanh `6 beat` AXI write burst
 
 Neu can mot duong regression hoan toan tren host, khong can board hay UIO node, co the dung:
 
@@ -238,14 +310,20 @@ Che do nay chay `accel_mmio_demo --emulate`, verify built-in NPU, runtime NPU, G
 - `rtl/accel/accel_umem_axi_fetch_stub.v`
 - `rtl/accel/accel_cmdq_desc_decode_stub.v`
 - `rtl/accel/accel_cmdq_dispatch_stub.v`
+- `rtl/accel/accel_npu_payload_fetch_stub.v`
 - `rtl/accel/accel_npu_cmd_exec_stub.v`
+- `rtl/accel/accel_npu_result_store_stub.v`
 - `tb/accel_mmio_regs_tb.v`
 - `tb/accel_cmdq_frontend_stub_tb.v`
 - `tb/accel_umem_axi_fetch_stub_tb.v`
 - `tb/accel_cmdq_desc_decode_stub_tb.v`
 - `tb/accel_cmdq_dispatch_stub_tb.v`
+- `tb/accel_npu_payload_fetch_stub_tb.v`
 - `tb/accel_npu_cmd_exec_stub_tb.v`
+- `tb/accel_npu_result_store_stub_tb.v`
 - `tb/accel_npu_queue_path_tb.v`
+- `tb/accel_npu_queue_payload_path_tb.v`
+- `tb/accel_npu_queue_writeback_path_tb.v`
 - `scripts/npu_v2_reference.py`
 - `scripts/npu_v2_pack_model.py`
 - `linux/uio/accel_cmdq_host.c`

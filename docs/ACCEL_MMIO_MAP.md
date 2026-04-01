@@ -128,6 +128,23 @@ Golden outputs:
 | `0x00020001` | `0x00040003` | `0x4E008008` | `+20` | `0` | `0` |
 | `0x02000100` | `0x04000300` | `0x4E018008` | `0` | `+20` | `1` |
 
+`model_id = 0x81` duoc dung cho runtime MLP nho `2 hidden neuron + ReLU + fixed output head`.
+No dung cung `W0*/W1*/BIAS*` nhu runtime linear model, nhung dien giai thanh:
+
+- `hidden0 = ReLU(dot(class0_weights, input) + bias0)`
+- `hidden1 = ReLU(dot(class1_weights, input) + bias1)`
+- `logit0 = hidden0 - hidden1`
+- `logit1 = hidden1 - hidden0`
+
+Golden MLP demo:
+
+- `W0A/W0B = [2,0,2,0]`
+- `W1A/W1B = [0,2,0,2]`
+- `bias0 = bias1 = -8`
+- `input0 = 0x00020001`, `input1 = 0x00040003`
+- `hidden = (12, 0)`
+- `status = 0x4E008108`, `logits = (+12, -12)`, `class = 0`
+
 ### Unified memory
 
 Layout mac dinh hien tai:
@@ -145,7 +162,7 @@ Layout mac dinh hien tai:
 Khi `UMEM_CTRL = 0x00000007` trong emulation:
 
 - NPU runtime model doc `input0/input1` va weights tu unified memory
-- output `status/logit0/logit1/class` duoc ghi tro lai unified memory
+- output `status/logit0/logit1/class/hidden0/hidden1` duoc ghi tro lai unified memory
 - GPU se mirror framebuffer row-words vao unified memory
 
 Golden outputs cho unified-memory demo hien tai:
@@ -153,6 +170,8 @@ Golden outputs cho unified-memory demo hien tai:
 - `UMEM NPU STATUS = 0x4E008008`
 - `UMEM NPU LOGIT0 = 20`
 - `UMEM NPU LOGIT1 = 0`
+- `UMEM NPU HIDDEN0 = 20`
+- `UMEM NPU HIDDEN1 = 0`
 - `UMEM GPU ROW[02] = 0x000007FC`
 - `UMEM GPU ROW[03] = 0x000003FC`
 - `UMEM GPU ROW[10] = 0x00000004`
@@ -188,6 +207,8 @@ Golden outputs:
 - `CMDQ NPU EXEC OUTPUT OFFSET = 0x00000480`
 - `CMDQ DESC2 = 0x80000080`
 - `CMDQ NPU STATUS = 0x4E008008`
+- `CMDQ NPU HIDDEN0 = 20`
+- `CMDQ NPU HIDDEN1 = 0`
 - `CMDQ GPU ROW[02] = 0x000007FC`
 
 ### Chay GPU

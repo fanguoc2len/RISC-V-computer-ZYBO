@@ -178,6 +178,8 @@ module accel_mmio_regs_tb;
     wire [31:0] npu_logit0;
     wire [31:0] npu_logit1;
     wire [7:0]  npu_class_id;
+    wire [31:0] npu_hidden0;
+    wire [31:0] npu_hidden1;
     wire        irq;
     wire        gpu_cmd_pulse;
     wire [7:0]  gpu_cmd_opcode;
@@ -304,7 +306,9 @@ module accel_mmio_regs_tb;
         .status_word (npu_status_word),
         .logit0      (npu_logit0),
         .logit1      (npu_logit1),
-        .class_id    (npu_class_id)
+        .class_id    (npu_class_id),
+        .hidden0     (npu_hidden0),
+        .hidden1     (npu_hidden1)
     );
 
     gpu3d_lite_stub gpu3d_i (

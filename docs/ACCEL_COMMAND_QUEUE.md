@@ -82,7 +82,7 @@ Flag bit:
 - `src1`: offset toi `accel_umem_npu_runtime_model_t`
 - `dst0`: offset toi `accel_umem_npu_output_t`
 - `arg0`: `seq_length`
-- `flags[7:0]`: `model_id`
+- `flags[7:0]`: `model_id` (`0x80` linear runtime, `0x81` runtime MLP)
 
 ### GPU_CLEAR
 
@@ -113,6 +113,8 @@ Golden log hien tai:
 - `cmdq_npu_exec_in = 0x00000400`
 - `cmdq_npu_exec_out = 0x00000480`
 - `cmdq_status_word = 0x4E008008`
+- `cmdq_hidden0 = 20`
+- `cmdq_hidden1 = 0`
 - `cmdq_gpu_row02 = 0x000007FC`
 
 Repo hien tai da tach thanh 2 lop ro rang:
@@ -122,7 +124,9 @@ Repo hien tai da tach thanh 2 lop ro rang:
 - AXI read-fetch scaffold: [accel_umem_axi_fetch_stub.v](/tmp/RISC-V-computer-zybo-z710/rtl/accel/accel_umem_axi_fetch_stub.v)
 - descriptor decode scaffold: [accel_cmdq_desc_decode_stub.v](/tmp/RISC-V-computer-zybo-z710/rtl/accel/accel_cmdq_desc_decode_stub.v)
 - dispatch scaffold: [accel_cmdq_dispatch_stub.v](/tmp/RISC-V-computer-zybo-z710/rtl/accel/accel_cmdq_dispatch_stub.v)
+- NPU payload-fetch scaffold: [accel_npu_payload_fetch_stub.v](/tmp/RISC-V-computer-zybo-z710/rtl/accel/accel_npu_payload_fetch_stub.v)
 - NPU execute scaffold: [accel_npu_cmd_exec_stub.v](/tmp/RISC-V-computer-zybo-z710/rtl/accel/accel_npu_cmd_exec_stub.v)
+- NPU result-store scaffold: [accel_npu_result_store_stub.v](/tmp/RISC-V-computer-zybo-z710/rtl/accel/accel_npu_result_store_stub.v)
 
 Frontend stub chua fetch DDR that, nhung da chot state machine:
 
@@ -156,6 +160,25 @@ NPU execute stub moi them da scaffold:
 - latch `model_id`, `seq_length`, `input/weight/output offset`
 - phat `npu_start_pulse` vao `npu_v2_stub`
 - expose `exec_count/last_model_id/flags` qua `NPU_CMD_EXEC_STATUS`
+
+NPU payload-fetch stub moi them da scaffold:
+
+- nam giua `dispatch` va `exec`
+- doi `input/weight/output offsets` thanh bo payload launch cho `npu_v2_stub`
+- phat `2 burst AXI read` de lay `input` roi `weights/bias` tu unified memory
+
+Read arbiter moi them da scaffold:
+
+- chia se `M_AXI_UMEM` giua `descriptor fetch` va `NPU payload fetch`
+- uu tien descriptor fetch neu 2 nhanh cung xin read channel
+- giu cho ABI queue phia software khong phai doi
+
+NPU result-store stub moi them da scaffold:
+
+- nam sau `npu_v2_stub`
+- nhan `store_request_pulse` tu execute stub khi queue-driven infer ket thuc
+- dong goi `status/logit0/logit1/class/hidden0/hidden1` thanh `6 beat x 32-bit`
+- phat `AW/W/B` transaction tren AXI write channel ve `UMEM_BASE + output_offset`
 
 ## Chua xong
 

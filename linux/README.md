@@ -145,13 +145,29 @@ Khi do:
 - `input0 = 0x00020001`, `input1 = 0x00040003` => `class = 0`, logits `(+20, 0)`
 - `input0 = 0x02000100`, `input1 = 0x04000300` => `class = 1`, logits `(0, +20)`
 
+Them nua, `model_id = 0x81` mo runtime MLP nho:
+
+- `hidden0 = ReLU(dot(class0_weights, input) + bias0)`
+- `hidden1 = ReLU(dot(class1_weights, input) + bias1)`
+- `logit0 = hidden0 - hidden1`
+- `logit1 = hidden1 - hidden0`
+
+Demo MLP hien tai dung:
+
+- `W0A/W0B = [2,0,2,0]`
+- `W1A/W1B = [0,2,0,2]`
+- `bias0 = bias1 = -8`
+- `input0 = 0x00020001`, `input1 = 0x00040003` => `hidden = (12, 0)`, logits `(+12, -12)`, `status = 0x4E008108`
+
 Co the doi chieu nhanh bang:
 
 ```sh
 python3 scripts/npu_v2_reference.py --input0 0x04030201 --input1 0x00000000
 python3 scripts/npu_v2_reference.py --input0 0x00000000 --input1 0x04030201
 python3 scripts/npu_v2_reference.py --runtime-demo --input0 0x00020001 --input1 0x00040003 --emit-mmio
-python3 scripts/npu_v2_pack_model.py --class0 2,0,2,0,2,0,2,0 --class1 0,2,0,2,0,2,0,2
+python3 scripts/npu_v2_reference.py --runtime-mlp-demo --input0 0x00020001 --input1 0x00040003
+python3 scripts/npu_v2_pack_model.py --model linear --class0 2,0,2,0,2,0,2,0 --class1 0,2,0,2,0,2,0,2
+python3 scripts/npu_v2_pack_model.py --model mlp --class0 2,0,2,0,2,0,2,0 --class1 0,2,0,2,0,2,0,2 --bias0 -8 --bias1 -8
 ```
 
 ## Build userspace demo
@@ -196,6 +212,7 @@ NPU demo trong app se:
 - chay 2 vector built-in model smoke test
 - nap runtime weights vao `0x68..0x7C`
 - chay them 2 vector cho runtime model `model_id = 0x80`
+- chay them 1 vector cho runtime MLP `model_id = 0x81`
 - chay them unified-memory NPU path voi input/weight/output nam trong cung mot buffer
 - chay them unified command queue demo voi `GPU_CLEAR`, `GPU_DRAW_TRI`, `NPU_INFER` chung mot ring buffer
 - in them command-queue `dispatch` va `NPU execute` debug regs (`0xE0..0xFC`) trong che do emulation
@@ -205,6 +222,7 @@ Che do `--emulate` dung backend MMIO noi bo trong process, nen co the verify nga
 - register map `PS <-> PL`
 - built-in NPU model
 - runtime NPU model
+- runtime NPU MLP model
 - unified memory ABI giua NPU/GPU
 - unified command queue trong shared memory
 - GPU triangle raster + PBM export

@@ -17,7 +17,9 @@ module npu_v2_stub (
     output reg  [31:0] status_word,
     output reg  [31:0] logit0,
     output reg  [31:0] logit1,
-    output reg  [7:0]  class_id
+    output reg  [7:0]  class_id,
+    output reg  [31:0] hidden0,
+    output reg  [31:0] hidden1
 );
     reg [7:0]  countdown;
     reg [7:0]  model_id_q;
@@ -38,7 +40,11 @@ module npu_v2_stub (
     wire [31:0] dot1_b;
     wire signed [31:0] sum0 = $signed(dot0_a) + $signed(dot0_b) + bias0;
     wire signed [31:0] sum1 = $signed(dot1_a) + $signed(dot1_b) + bias1;
-    wire [7:0] class_next = ($signed(sum1) > $signed(sum0)) ? 8'h01 : 8'h00;
+    wire signed [31:0] hidden0_next = (model_id_q == 8'h81 && $signed(sum0) < 0) ? 32'sd0 : sum0;
+    wire signed [31:0] hidden1_next = (model_id_q == 8'h81 && $signed(sum1) < 0) ? 32'sd0 : sum1;
+    wire signed [31:0] logit0_next = (model_id_q == 8'h81) ? (hidden0_next - hidden1_next) : sum0;
+    wire signed [31:0] logit1_next = (model_id_q == 8'h81) ? (hidden1_next - hidden0_next) : sum1;
+    wire [7:0] class_next = ($signed(logit1_next) > $signed(logit0_next)) ? 8'h01 : 8'h00;
 
     npu_dot4_i8 dot0a_i (
         .vec_a  (input_vec0_q),
@@ -75,8 +81,11 @@ module npu_v2_stub (
                 bias0 = 32'sd2;
                 bias1 = -32'sd2;
             end
-            8'h80: begin
-                // Runtime-programmable 2-class linear model loaded via MMIO.
+            8'h80,
+            8'h81: begin
+                // Runtime-programmable models loaded via MMIO.
+                // 0x80 = linear classifier
+                // 0x81 = MLP-lite classifier with ReLU(hidden0/hidden1)
                 weight0_a = runtime_weight0_a;
                 weight0_b = runtime_weight0_b;
                 weight1_a = runtime_weight1_a;
@@ -111,6 +120,8 @@ module npu_v2_stub (
             logit0 <= 32'h00000000;
             logit1 <= 32'h00000000;
             class_id <= 8'h00;
+            hidden0 <= 32'h00000000;
+            hidden1 <= 32'h00000000;
         end else begin
             done <= 1'b0;
 
@@ -125,9 +136,11 @@ module npu_v2_stub (
                 if (countdown == 8'd0) begin
                     busy <= 1'b0;
                     done <= 1'b1;
-                    logit0 <= sum0;
-                    logit1 <= sum1;
+                    logit0 <= logit0_next;
+                    logit1 <= logit1_next;
                     class_id <= class_next;
+                    hidden0 <= hidden0_next;
+                    hidden1 <= hidden1_next;
                     status_word <= {8'h4E, class_next, model_id_q, seq_length_q[7:0]};
                 end else begin
                     countdown <= countdown - 8'd1;

@@ -13,6 +13,7 @@ module accel_npu_cmd_exec_stub_tb;
     reg npu_busy;
     reg npu_done;
     wire npu_start_pulse;
+    wire store_request_pulse;
     wire [7:0] npu_model_id_out;
     wire [15:0] npu_seq_length_out;
     wire [31:0] exec_status;
@@ -33,6 +34,7 @@ module accel_npu_cmd_exec_stub_tb;
         .npu_busy(npu_busy),
         .npu_done(npu_done),
         .npu_start_pulse(npu_start_pulse),
+        .store_request_pulse(store_request_pulse),
         .npu_model_id_out(npu_model_id_out),
         .npu_seq_length_out(npu_seq_length_out),
         .exec_status(exec_status),
@@ -87,6 +89,11 @@ module accel_npu_cmd_exec_stub_tb;
         npu_done = 1'b1;
         @(posedge clk);
         npu_done = 1'b0;
+
+        if (!store_request_pulse) begin
+            $display("FAIL: NPU exec did not emit store_request_pulse on completion.");
+            $finish;
+        end
 
         if (exec_status !== 32'h0001_8004) begin
             $display("FAIL: NPU exec idle status mismatch. got=%08x", exec_status);

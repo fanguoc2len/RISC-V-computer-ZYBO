@@ -25,6 +25,8 @@ module zybo_z7_10_accel_shell (
     wire [31:0] npu_logit0;
     wire [31:0] npu_logit1;
     wire [7:0]  npu_class_id;
+    wire [31:0] npu_hidden0;
+    wire [31:0] npu_hidden1;
     wire [31:0] npu_weight0_a;
     wire [31:0] npu_weight0_b;
     wire [31:0] npu_weight1_a;
@@ -86,7 +88,9 @@ module zybo_z7_10_accel_shell (
         .status_word (npu_status_word),
         .logit0      (npu_logit0),
         .logit1      (npu_logit1),
-        .class_id    (npu_class_id)
+        .class_id    (npu_class_id),
+        .hidden0     (npu_hidden0),
+        .hidden1     (npu_hidden1)
     );
 
     assign npu_weight0_a = 32'h01010101;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pack an 8-feature / 2-class linear model into MMIO words for NPU v2."""
+"""Pack an 8-feature runtime model into MMIO words for NPU v2."""
 
 from __future__ import annotations
 
@@ -29,6 +29,8 @@ def main() -> int:
     parser.add_argument("--class1", type=parse_vec8, required=True, help="eight int8 weights for class1")
     parser.add_argument("--bias0", type=int, default=0, help="signed bias for class0")
     parser.add_argument("--bias1", type=int, default=0, help="signed bias for class1")
+    parser.add_argument("--model", choices=("linear", "mlp"), default="linear",
+                        help="runtime model interpretation: linear -> 0x80, mlp -> 0x81")
     parser.add_argument("--base", type=lambda value: int(value, 0), default=0x43C00000, help="MMIO base address")
     args = parser.parse_args()
 
@@ -55,14 +57,17 @@ def main() -> int:
     }
 
     print("packed_words:")
+    print(f"  REG_NPU_CFG0      = 0x{(0x81 if args.model == 'mlp' else 0x80):08X}")
     for name, word in reg_words.items():
         print(f"  {name:16s} = 0x{word:08X}")
 
     print("\ndevmem_writes:")
+    print(f"  devmem 0x{args.base + 0x0C:08X} 32 0x{(0x81 if args.model == 'mlp' else 0x80):08X}")
     for name, offset in reg_offsets.items():
         print(f"  devmem 0x{args.base + offset:08X} 32 0x{reg_words[name]:08X}")
 
     print("\nc_snippet:")
+    print(f"  reg_write(base, 0x0C, 0x{(0x81 if args.model == 'mlp' else 0x80):08X}u);")
     print(f"  reg_write(base, 0x68, 0x{reg_words['REG_NPU_WEIGHT0_A']:08X}u);")
     print(f"  reg_write(base, 0x6C, 0x{reg_words['REG_NPU_WEIGHT0_B']:08X}u);")
     print(f"  reg_write(base, 0x70, 0x{reg_words['REG_NPU_WEIGHT1_A']:08X}u);")

@@ -11,6 +11,7 @@ module accel_npu_cmd_exec_stub (
     input  wire        npu_busy,
     input  wire        npu_done,
     output reg         npu_start_pulse,
+    output reg         store_request_pulse,
     output reg  [7:0]  npu_model_id_out,
     output reg  [15:0] npu_seq_length_out,
     output reg  [31:0] exec_status,
@@ -30,6 +31,7 @@ module accel_npu_cmd_exec_stub (
     always @(posedge clk) begin
         if (!resetn) begin
             npu_start_pulse <= 1'b0;
+            store_request_pulse <= 1'b0;
             npu_model_id_out <= 8'h00;
             npu_seq_length_out <= 16'h0000;
             exec_status <= STATUS_IDLE;
@@ -42,6 +44,7 @@ module accel_npu_cmd_exec_stub (
             error_sticky <= 1'b0;
         end else begin
             npu_start_pulse <= 1'b0;
+            store_request_pulse <= 1'b0;
 
             if (!enable) begin
                 exec_status <= STATUS_IDLE;
@@ -72,6 +75,7 @@ module accel_npu_cmd_exec_stub (
 
                 if (inflight && npu_done) begin
                     inflight <= 1'b0;
+                    store_request_pulse <= 1'b1;
                 end
 
                 exec_status <= {exec_count, last_model_id, 5'h00,

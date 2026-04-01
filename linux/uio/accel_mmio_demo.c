@@ -71,6 +71,8 @@ typedef struct {
     uint32_t npu_status_word;
     int32_t npu_logit0;
     int32_t npu_logit1;
+    int32_t npu_hidden0;
+    int32_t npu_hidden1;
     uint8_t npu_class_id;
     uint8_t gpu_cmd_opcode;
     uint16_t gpu_vertex0;
@@ -271,6 +273,7 @@ static void emu_select_npu_weights(const accel_emulator_t *emu, uint8_t model_id
             *bias1 = -2;
             break;
         case NPU_MODEL_RUNTIME:
+        case NPU_MODEL_RUNTIME_MLP:
             *weight0_a = emu->npu_weight0_a;
             *weight0_b = emu->npu_weight0_b;
             *weight1_a = emu->npu_weight1_a;
@@ -297,13 +300,15 @@ static void emu_run_npu(accel_emulator_t *emu) {
     uint32_t weight1_b = 0;
     int32_t bias0 = 0;
     int32_t bias1 = 0;
+    int32_t linear0 = 0;
+    int32_t linear1 = 0;
 
     emu->npu_busy = true;
     if ((emu->umem_ctrl & (ACCEL_UMEM_CTRL_ENABLE | ACCEL_UMEM_CTRL_NPU_USE_BUF)) ==
         (ACCEL_UMEM_CTRL_ENABLE | ACCEL_UMEM_CTRL_NPU_USE_BUF)) {
         emu->npu_input0 = emu_umem_read32(emu, emu->umem_npu_input_offset + 0u);
         emu->npu_input1 = emu_umem_read32(emu, emu->umem_npu_input_offset + 4u);
-        if (emu->npu_model_id == NPU_MODEL_RUNTIME) {
+        if (emu->npu_model_id == NPU_MODEL_RUNTIME || emu->npu_model_id == NPU_MODEL_RUNTIME_MLP) {
             emu->npu_weight0_a = emu_umem_read32(emu, emu->umem_npu_weight_offset + 0u);
             emu->npu_weight0_b = emu_umem_read32(emu, emu->umem_npu_weight_offset + 4u);
             emu->npu_weight1_a = emu_umem_read32(emu, emu->umem_npu_weight_offset + 8u);
@@ -313,8 +318,19 @@ static void emu_run_npu(accel_emulator_t *emu) {
         }
     }
     emu_select_npu_weights(emu, emu->npu_model_id, &weight0_a, &weight0_b, &weight1_a, &weight1_b, &bias0, &bias1);
-    emu->npu_logit0 = dot4_i8(emu->npu_input0, weight0_a) + dot4_i8(emu->npu_input1, weight0_b) + bias0;
-    emu->npu_logit1 = dot4_i8(emu->npu_input0, weight1_a) + dot4_i8(emu->npu_input1, weight1_b) + bias1;
+    linear0 = dot4_i8(emu->npu_input0, weight0_a) + dot4_i8(emu->npu_input1, weight0_b) + bias0;
+    linear1 = dot4_i8(emu->npu_input0, weight1_a) + dot4_i8(emu->npu_input1, weight1_b) + bias1;
+    if (emu->npu_model_id == NPU_MODEL_RUNTIME_MLP) {
+        emu->npu_hidden0 = (linear0 > 0) ? linear0 : 0;
+        emu->npu_hidden1 = (linear1 > 0) ? linear1 : 0;
+        emu->npu_logit0 = emu->npu_hidden0 - emu->npu_hidden1;
+        emu->npu_logit1 = emu->npu_hidden1 - emu->npu_hidden0;
+    } else {
+        emu->npu_hidden0 = linear0;
+        emu->npu_hidden1 = linear1;
+        emu->npu_logit0 = linear0;
+        emu->npu_logit1 = linear1;
+    }
     emu->npu_class_id = (emu->npu_logit1 > emu->npu_logit0) ? 1u : 0u;
     emu->npu_status_word =
         (0x4Eu << 24) |
@@ -327,6 +343,8 @@ static void emu_run_npu(accel_emulator_t *emu) {
         emu_umem_write32(emu, emu->umem_npu_output_offset + 4u, (uint32_t)emu->npu_logit0);
         emu_umem_write32(emu, emu->umem_npu_output_offset + 8u, (uint32_t)emu->npu_logit1);
         emu_umem_write32(emu, emu->umem_npu_output_offset + 12u, emu->npu_class_id);
+        emu_umem_write32(emu, emu->umem_npu_output_offset + 16u, (uint32_t)emu->npu_hidden0);
+        emu_umem_write32(emu, emu->umem_npu_output_offset + 20u, (uint32_t)emu->npu_hidden1);
     }
     emu->npu_busy = false;
     emu->npu_done_sticky = true;
@@ -859,6 +877,8 @@ static void run_npu_sample(accel_backend_t *backend, int uio_fd, bool use_irq,
 
     printf("npu_model_id    = 0x%02x\n", model_id);
     printf("npu_status_word = 0x%08x\n", reg_read(backend, REG_NPU_STATUS_WORD));
+    printf("npu_hidden0     = %d\n", backend->emulate ? backend->emu.npu_hidden0 : 0);
+    printf("npu_hidden1     = %d\n", backend->emulate ? backend->emu.npu_hidden1 : 0);
     printf("npu_logit0      = %d\n", (int32_t)reg_read(backend, REG_NPU_LOGIT0));
     printf("npu_logit1      = %d\n", (int32_t)reg_read(backend, REG_NPU_LOGIT1));
     printf("npu_class       = %u\n", reg_read(backend, REG_NPU_CLASS) & 0xffu);
@@ -878,6 +898,15 @@ static void run_runtime_npu_demo(accel_backend_t *backend, int uio_fd, bool use_
 
     printf("\n-- runtime sample odd-lanes --\n");
     run_npu_sample(backend, uio_fd, use_irq, "npu_runtime_odd", NPU_MODEL_RUNTIME, 0x02000100u, 0x04000300u);
+
+    printf("\n-- runtime MLP sample --\n");
+    reg_write(backend, REG_NPU_WEIGHT0_A, 0x00020002u);
+    reg_write(backend, REG_NPU_WEIGHT0_B, 0x00020002u);
+    reg_write(backend, REG_NPU_WEIGHT1_A, 0x02000200u);
+    reg_write(backend, REG_NPU_WEIGHT1_B, 0x02000200u);
+    reg_write(backend, REG_NPU_BIAS0, 0xFFFFFFF8u);
+    reg_write(backend, REG_NPU_BIAS1, 0xFFFFFFF8u);
+    run_npu_sample(backend, uio_fd, use_irq, "npu_runtime_mlp", NPU_MODEL_RUNTIME_MLP, 0x00020001u, 0x00040003u);
 }
 
 static void configure_unified_memory(accel_backend_t *backend) {
@@ -963,6 +992,8 @@ static void run_unified_memory_demo(accel_backend_t *backend, int uio_fd, bool u
     printf("umem_logit0      = %d\n", (int32_t)emu_umem_read32(&backend->emu, backend->emu.umem_npu_output_offset + 4u));
     printf("umem_logit1      = %d\n", (int32_t)emu_umem_read32(&backend->emu, backend->emu.umem_npu_output_offset + 8u));
     printf("umem_class       = %u\n", emu_umem_read32(&backend->emu, backend->emu.umem_npu_output_offset + 12u));
+    printf("umem_hidden0     = %d\n", (int32_t)emu_umem_read32(&backend->emu, backend->emu.umem_npu_output_offset + 16u));
+    printf("umem_hidden1     = %d\n", (int32_t)emu_umem_read32(&backend->emu, backend->emu.umem_npu_output_offset + 20u));
     reg_write(backend, REG_STATUS, STATUS_CLR_NPU_DONE);
 
     reg_write(backend, REG_GPU_CLEAR_VALUE, 0u);
@@ -1077,6 +1108,8 @@ static void run_unified_command_queue_demo(accel_backend_t *backend, const char 
     printf("cmdq_logit0      = %d\n", (int32_t)emu_umem_read32(&backend->emu, q_output_offset + 4u));
     printf("cmdq_logit1      = %d\n", (int32_t)emu_umem_read32(&backend->emu, q_output_offset + 8u));
     printf("cmdq_class       = %u\n", emu_umem_read32(&backend->emu, q_output_offset + 12u));
+    printf("cmdq_hidden0     = %d\n", (int32_t)emu_umem_read32(&backend->emu, q_output_offset + 16u));
+    printf("cmdq_hidden1     = %d\n", (int32_t)emu_umem_read32(&backend->emu, q_output_offset + 20u));
 
     read_umem_framebuffer_rows_at(backend, q_fb_offset, q_pitch, q_rows);
     printf("cmdq_gpu_row02  = 0x%08x\n", q_rows[2]);
