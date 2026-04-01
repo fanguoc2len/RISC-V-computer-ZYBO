@@ -1,0 +1,110 @@
+#ifndef ACCEL_MMIO_H
+#define ACCEL_MMIO_H
+
+#define ACCEL_MAP_BYTES        0x1000
+
+#define REG_ID_VERSION         0x00
+#define REG_CONTROL            0x04
+#define REG_STATUS             0x08
+#define REG_NPU_CFG0           0x0C
+#define REG_NPU_STATUS_WORD    0x10
+#define REG_NPU_INPUT0         0x14
+#define REG_NPU_INPUT1         0x18
+#define REG_NPU_LOGIT0         0x1C
+#define REG_NPU_LOGIT1         0x20
+#define REG_NPU_CLASS          0x24
+#define REG_GPU_CMD            0x28
+#define REG_GPU_TRIANGLES      0x2C
+#define REG_LEGACY_BOOT        0x30
+#define REG_LEGACY_GPIO        0x34
+#define REG_IRQ_ENABLE         0x38
+#define REG_IRQ_STATUS         0x3C
+#define REG_GPU_VERTEX0        0x40
+#define REG_GPU_VERTEX1        0x44
+#define REG_GPU_VERTEX2        0x48
+#define REG_GPU_CLEAR_VALUE    0x4C
+#define REG_GPU_FRAME_COUNT    0x50
+#define REG_GPU_RASTER_PIXELS  0x54
+#define REG_GPU_LAST_AREA2     0x58
+#define REG_GPU_LAST_BBOX      0x5C
+#define REG_GPU_FB_ROWSEL      0x60
+#define REG_GPU_FB_ROWDATA     0x64
+#define REG_NPU_WEIGHT0_A      0x68
+#define REG_NPU_WEIGHT0_B      0x6C
+#define REG_NPU_WEIGHT1_A      0x70
+#define REG_NPU_WEIGHT1_B      0x74
+#define REG_NPU_BIAS0          0x78
+#define REG_NPU_BIAS1          0x7C
+#define REG_UMEM_CTRL          0x80
+#define REG_UMEM_BASE          0x84
+#define REG_UMEM_SIZE          0x88
+#define REG_UMEM_NPU_INPUT     0x8C
+#define REG_UMEM_NPU_WEIGHT    0x90
+#define REG_UMEM_NPU_OUTPUT    0x94
+#define REG_UMEM_GPU_FB        0x98
+#define REG_UMEM_GPU_FB_PITCH  0x9C
+#define REG_UMEM_CMDQ_BASE     0xA0
+#define REG_UMEM_CMDQ_SIZE     0xA4
+#define REG_UMEM_CMDQ_HEAD     0xA8
+#define REG_UMEM_CMDQ_TAIL     0xAC
+#define REG_UMEM_CMDQ_DOORBELL 0xB0
+#define REG_UMEM_CMDQ_STATUS   0xB4
+#define REG_CMDQ_TAIL_SHADOW   0xB8
+#define REG_CMDQ_STATUS_SHADOW 0xBC
+#define REG_CMDQ_FETCH_OFFSET  0xC0
+#define REG_CMDQ_FETCH_SEQUENCE 0xC4
+#define REG_CMDQ_FETCH_SLOT    0xC8
+#define REG_UMEM_FETCH_STATUS  0xCC
+#define REG_UMEM_FETCH_LAST_ARADDR 0xD0
+#define REG_UMEM_FETCH_LAST_SEQUENCE 0xD4
+#define REG_UMEM_FETCH_BEAT_COUNT 0xD8
+#define REG_UMEM_FETCH_DESC_WORD0 0xDC
+#define REG_CMDQ_DISPATCH_STATUS 0xE0
+#define REG_CMDQ_DISPATCH_OPCODE 0xE4
+#define REG_CMDQ_DISPATCH_NPU_COUNT 0xE8
+#define REG_CMDQ_DISPATCH_GPU_COUNT 0xEC
+#define REG_CMDQ_DISPATCH_ERROR_COUNT 0xF0
+#define REG_NPU_CMD_EXEC_STATUS 0xF4
+#define REG_NPU_CMD_EXEC_INPUT_OFFSET 0xF8
+#define REG_NPU_CMD_EXEC_OUTPUT_OFFSET 0xFC
+
+#define CTRL_NPU_START         0x00000001u
+#define CTRL_GPU_START         0x00000002u
+
+#define NPU_MODEL_BUILTIN_1    0x01u
+#define NPU_MODEL_BUILTIN_2    0x02u
+#define NPU_MODEL_RUNTIME      0x80u
+
+#define GPU_CMD_CLEAR          0x00000001u
+#define GPU_CMD_DRAW_TRI       0x00000002u
+#define GPU_FB_ROWS            32u
+#define GPU_FB_COLS            32u
+
+#define STATUS_NPU_BUSY        0x00000001u
+#define STATUS_NPU_DONE        0x00000002u
+#define STATUS_GPU_BUSY        0x00000004u
+#define STATUS_GPU_DONE        0x00000008u
+
+#define STATUS_CLR_NPU_DONE    0x00000001u
+#define STATUS_CLR_GPU_DONE    0x00000002u
+
+#define IRQ_EN_NPU_DONE        0x00000001u
+#define IRQ_EN_GPU_DONE        0x00000002u
+
+#define IRQ_STATUS_NPU_PENDING 0x00000001u
+#define IRQ_STATUS_GPU_PENDING 0x00000002u
+#define IRQ_STATUS_LINE        0x00000004u
+
+#define CMDQ_STATUS_BUSY       0x00000001u
+#define CMDQ_STATUS_ERROR      0x00000002u
+#define CMDQ_STATUS_EMPTY      0x00000004u
+
+#define CMDQ_DISPATCH_BUSY     0x00000001u
+#define CMDQ_DISPATCH_ERROR    0x00000002u
+#define CMDQ_DISPATCH_IDLE     0x00000004u
+
+#define NPU_CMD_EXEC_BUSY      0x00000001u
+#define NPU_CMD_EXEC_ERROR     0x00000002u
+#define NPU_CMD_EXEC_IDLE      0x00000004u
+
+#endif

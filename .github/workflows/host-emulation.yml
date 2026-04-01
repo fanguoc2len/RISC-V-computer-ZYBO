@@ -1,0 +1,36 @@
+name: Host Emulation Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host-emulation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Python reference checks
+        run: |
+          python3 -m py_compile \
+            scripts/gpu3d_lite_reference.py \
+            scripts/npu_v2_reference.py \
+            scripts/npu_v2_pack_model.py
+          python3 scripts/npu_v2_reference.py --runtime-demo --input0 0x00020001 --input1 0x00040003 --emit-mmio
+          python3 scripts/gpu3d_lite_reference.py
+
+      - name: Build userspace demo
+        run: make -C linux/uio clean all
+
+      - name: Run emulated regression
+        run: make -C linux/uio check-emulate
+
+      - name: Run emulated IRQ regression
+        run: make -C linux/uio check-emulate-irq

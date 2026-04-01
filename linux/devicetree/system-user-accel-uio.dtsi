@@ -1,0 +1,12 @@
+/ {
+    chosen {
+        bootargs = "earlycon console=ttyPS0,115200";
+    };
+};
+
+/*
+ * After importing the XSA into PetaLinux, resolve IRQ_F2P[0] to the correct
+ * GIC SPI id in the generated system-top.dts, then add the interrupt-parent
+ * and interrupts properties to zybo_accel_uio@43c00000.
+ */
+/include/ "zybo_accel_uio.dtsi"

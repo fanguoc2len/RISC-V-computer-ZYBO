@@ -1,0 +1,15 @@
+/ {
+    zybo_accel_uio@43c00000 {
+        compatible = "generic-uio";
+        reg = <0x43c00000 0x1000>;
+        /*
+         * For interrupt-capable bring-up, add the GIC mapping generated for
+         * processing_system7_0/IRQ_F2P[0] after importing the XSA.
+         *
+         * Example shape:
+         * interrupt-parent = <&intc>;
+         * interrupts = <0 <spi-id> 4>;
+         */
+        status = "okay";
+    };
+};
