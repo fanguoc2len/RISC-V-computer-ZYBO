@@ -1,392 +1,209 @@
-# RISC-V Computer on Zybo Z7-10
+# RISC-V / Accelerator Platform on Zybo Z7-10
 
-Project nay la mot he moi, tach rieng khoi repo Basys 3 cu. Huong di moi:
+This repository is the second branch of the project family. Unlike the Basys 3
+repo, this one is **not** a text-mode mini computer for Artix-7 bring-up. It is
+a `Zybo Z7-10` platform that moves toward:
 
-- `Zynq PS` chay `Linux`
-- `PL` chua accelerator fabric
-- tai su dung cac khoi RTL huu ich tu repo cu de bring-up nhanh
+- `Linux` on the `Zynq PS`
+- accelerator logic in the `PL`
+- MMIO / unified-memory / command-queue infrastructure
+- future `NPU v2` and `GPU 3D lite` execution paths
 
-Repo nay khong con dong vai tro "mini PC text mode tren Basys 3" nua. Muc tieu cua no la mot platform `heterogeneous` tren `Zybo Z7-10` de chay:
+In short:
 
-1. `Linux` tren `PS`
-2. `NPU v2` trong `PL`
-3. `GPU 3D lite` trong `PL`
-4. userspace Linux dieu khien accelerator qua `MMIO/DMA`
+- `RISC-V-computer` = Basys 3 / Artix-7 mini computer
+- `RISC-V-computer-ZYBO` = Zynq / Zybo accelerator platform
 
-## Kien truc tong quan
+## Hardware Target
 
-- Board target: `Zybo Z7-10`
-- SoC host: `Zynq-7000 PS`
-- Legacy RTL duoc giu lai trong giai doan dau:
-  - `riscv_pc_soc.v`
-  - boot ROM / SRAM / UART / SPI / PS2
-- Accelerator huong moi:
-  - `rtl/accel/npu_v2_stub.v`
-  - `rtl/accel/gpu3d_lite_stub.v`
-- Shell top moi:
-  - `rtl/top/zybo_z7_10_accel_shell.v`
+- Board: `Digilent Zybo Z7-10`
+- SoC: `Zynq-7000`
+- Part: `xc7z010clg400-1`
+- Current top shell: `rtl/top/zybo_z7_10_accel_shell.v`
 
-Lua chon kien truc quan trong: `Linux` se chay tren `PS`, khong chay tren `PicoRV32`. `PicoRV32` duoc giu lai nhu mot khoi tham chieu va control island trong giai doan migration.
+## Project Goal
 
-## Trang thai hien tai
+The long-term target is a heterogeneous platform where:
 
-Moc hien tai la `foundation scaffold` cho project Zybo:
+- the `PS` runs Linux
+- the `PL` hosts accelerator infrastructure
+- software submits work through MMIO and shared-memory queues
+- NPU and GPU-style blocks evolve beyond the small Basys-era test logic
 
-- da tach thanh repo moi
-- da doi README va docs sang huong `Zybo Z7-10`
-- da co shell top moi cho `PL-first bring-up`
-- da co script Vivado moi cho part `xc7z010clg400-1`
-- da co skeleton cho `NPU v2`, `GPU 3D lite`, va Linux plan
-- da co script tao `Zynq PS -> AXI-Lite -> PL` block design
-- da co MMIO regression bench cho bridge `PS <-> accelerator`
-- da co Linux UIO demo + software reference cho tiny-model NPU
-- da co runtime-programmable linear model 2 lop cho NPU qua MMIO
-- da co GPU triangle raster path `32x32` 1bpp voi row readback qua MMIO
-- da co host-side emulation path cho `accel_mmio_demo` de test stack khong can board
-- da co unified-memory ABI dau tien giua NPU/GPU tren host emulation + MMIO bridge
-- da co unified command queue trong shared memory voi `HEAD/TAIL/DOORBELL` va descriptor flow `GPU_CLEAR -> GPU_DRAW_TRI -> NPU_INFER`
-- da co hardware scaffold `command queue frontend -> AXI read fetch stub` cho unified-memory path trong PL
-- da co `dispatch stub` sau decode, nhanh GPU da duoc mux vao `gpu3d_lite_stub`, va nhanh NPU da di them 3 tang qua `accel_npu_payload_fetch_stub` + `accel_npu_cmd_exec_stub` + `accel_npu_result_store_stub`
-- da co read-arbiter scaffold de chia se `M_AXI_UMEM` giua descriptor fetch va NPU payload fetch
+This is why the repository still keeps some legacy PicoRV32 blocks: they are
+useful scaffolding while the migration is in progress.
 
-Nhung thu chua xong trong moc nay:
+## Current Status
 
-- block design da co script tao, nhung chua duoc dong goi thanh handoff `XSA` da xac minh
-- chua boot `Linux` that tren board
-- chua co `AXI DMA` va kernel driver rieng
-- chua co pipeline GPU 3D day du
-- chua co model AI end-to-end chay tren NPU moi
+This repository is currently a **foundation scaffold** with meaningful
+verification, not yet a finished Linux-on-board product.
 
-## Cau truc repo
+Already implemented:
 
-- `rtl/top/zybo_z7_10_accel_shell.v`: shell top moi
-- `rtl/accel/`: skeleton accelerator moi
-- `rtl/accel/accel_mmio_regs.v`: AXI-Lite bridge tu PS sang accelerator regs
-- `rtl/accel/accel_cmdq_frontend_stub.v`: command-queue frontend scaffold cho PL
-- `rtl/accel/accel_umem_axi_fetch_stub.v`: AXI read-fetch scaffold cho descriptor trong unified memory
-- `rtl/accel/accel_umem_axi_read_arbiter_stub.v`: arbiter cho read channel giua descriptor fetch va NPU payload fetch
-- `rtl/accel/accel_cmdq_desc_decode_stub.v`: descriptor decode scaffold sau fetch stage
-- `rtl/accel/accel_cmdq_dispatch_stub.v`: command dispatcher scaffold tu decode sang NPU/GPU
-- `rtl/accel/accel_npu_payload_fetch_stub.v`: payload-fetch scaffold cho `NPU_INFER` doc `input + weights/bias` tu unified memory qua AXI read path
-- `rtl/accel/accel_npu_cmd_exec_stub.v`: NPU execute stub sau dispatcher de phat `start/model/seq` va debug offsets
-- `rtl/accel/accel_npu_result_store_stub.v`: NPU writeback scaffold de commit `status/logit/class/hidden` ra unified-memory AXI write path
-- `rtl/soc/`: legacy PicoRV32 subsystem de tai su dung
-- `linux/README.md`: ke hoach boot Linux tren PS
-- `docs/ARCHITECTURE_ZYBO.md`: kien truc muc tieu
-- `docs/ACCEL_MMIO_MAP.md`: register map dau tien cho `PS -> PL`
-- `docs/ACCEL_COMMAND_QUEUE.md`: descriptor ABI va submission flow cho unified command queue
-- `docs/ROADMAP_ZYBO.md`: roadmap Linux / NPU / GPU
-- `docs/MIGRATION_FROM_BASYS3.md`: nhung gi se giu, bo, va lam lai
-- `scripts/create_vivado_zybo_project.tcl`: entrypoint tao project Vivado moi
-- `scripts/create_vivado_zybo_ps_project.tcl`: tao them block design `PS -> PL`
-- `scripts/run_vivado_zybo_umem_axi_fetch_sim.tcl`: test rieng AXI fetch stub
-- `scripts/run_vivado_zybo_cmdq_decode_sim.tcl`: test rieng descriptor decode stub
-- `scripts/run_vivado_zybo_cmdq_dispatch_sim.tcl`: test rieng dispatch stub
-- `scripts/run_vivado_zybo_npu_payload_fetch_sim.tcl`: test rieng NPU payload fetch stub
-- `scripts/run_vivado_zybo_npu_exec_sim.tcl`: test rieng NPU execute stub
-- `scripts/run_vivado_zybo_npu_result_store_sim.tcl`: test rieng NPU result store stub
-- `scripts/run_vivado_zybo_npu_queue_path_sim.tcl`: test rieng chuoi `dispatch -> exec -> npu_v2`
-- `scripts/run_vivado_zybo_npu_queue_payload_path_sim.tcl`: test rieng chuoi `dispatch -> payload fetch -> exec -> npu_v2`
-- `scripts/run_vivado_zybo_npu_queue_writeback_path_sim.tcl`: test rieng chuoi `dispatch -> payload fetch -> exec -> npu_v2 -> result store`
-- `scripts/run_vivado_zybo_npu_queue_runtime_mlp_sim.tcl`: test rieng chuoi queue-driven `model 0x81` voi payload fetch + writeback day du
-- `scripts/export_zybo_ps_xsa.tcl`: build PS/PL platform va export `XSA` cho Linux flow
-- `linux/petalinux/README.md`: cac manh ghep handoff tu `XSA` sang `PetaLinux`
-- `linux/uio/accel_cmdq_host.c`: host-side producer library cho unified command queue
+- Zybo-specific Vivado project creation
+- `PL-first` accelerator shell
+- PS/PL block-design generation scripts
+- MMIO bridge scaffold
+- unified-memory queue scaffolding
+- NPU queue-path stubs and writeback stubs
+- GPU-lite raster stub path
+- host-side userspace emulation and regression checks
+- Linux UIO-side helper code and command-queue host tests
 
-## Cach dung nhanh
+Not done yet:
 
-Mo Vivado Tcl console, roi chay:
+- fully validated exported XSA on hardware
+- full Linux boot and driver bring-up on board
+- DMA-centered production data path
+- completed end-to-end AI model execution on real hardware
+- completed 3D graphics pipeline
+
+## Repository Layout
+
+```text
+rtl/
+  top/zybo_z7_10_accel_shell.v   PL-first shell
+  top/zybo_z7_10_ps_pl_top.v     PS/PL integration module
+  accel/                         accelerator and queue scaffolding
+  soc/                           legacy PicoRV32 subsystem kept for migration
+
+linux/
+  uio/                           host-side demo and queue producer checks
+  devicetree/                    UIO-related DTS fragments
+
+scripts/
+  create_vivado_zybo_project.tcl
+  create_vivado_zybo_ps_project.tcl
+  export_zybo_ps_xsa.tcl
+  run_vivado_zybo_*.tcl          focused accelerator regressions
+
+docs/
+  architecture, migration, MMIO map, unified-memory notes, roadmap
+```
+
+## Quick Start
+
+### 1. Create the Zybo Vivado project
 
 ```tcl
-cd <duong-dan-repo>
+cd <repo-path>
 source scripts/create_vivado_zybo_project.tcl
 ```
 
-Script nay se:
+This creates the project for `xc7z010clg400-1`, adds the RTL sources, and sets
+`zybo_z7_10_accel_shell` as the synthesis top.
 
-- tao project moi voi part `xc7z010clg400-1`
-- add cac nguon `rtl/`, `third_party/picorv32/`, va memory images
-- set top synthesis sang `zybo_z7_10_accel_shell`
-- set sim top sang `monitor_shell_tb` de giu mot regression nhanh cho legacy subsystem
-
-Luu y: day la `PL-first skeleton` cho project moi. No chua phai ban Linux/Zynq hoan chinh, nhung da la mot diem bat dau dung huong.
-
-## Build shell va export XSA
-
-Neu muon build shell `PL-first` de kiem tra top synthesis hien tai, dung:
+### 2. Build the PL-first shell
 
 ```bat
 scripts\run_vivado_build.bat
 ```
 
-Bitstream shell du kien nam o:
+Expected bitstream:
 
 ```text
 build\vivado_zybo\riscv_computer_zybo_z7_10.runs\impl_1\zybo_z7_10_accel_shell.bit
 ```
 
-Neu muon nap shell nay len board qua JTAG, dung:
+### 3. Program the shell
 
 ```bat
 scripts\program_zybo_accel_shell.bat
 ```
 
-Tat ca batch script trong repo se uu tien tim Vivado theo thu tu:
+Compatibility note: legacy `program_basys3.*` scripts are still present as
+aliases so old habits do not break, but the correct Zybo-oriented entry point is
+`program_zybo_accel_shell.bat`.
+
+### 4. Generate the PS/PL handoff
+
+```tcl
+source scripts/export_zybo_ps_xsa.tcl
+```
+
+Expected output:
+
+```text
+build/hw/zybo_z7_10_ps_pl.xsa
+```
+
+### 5. Run host-side checks
+
+```sh
+make -C linux/uio clean all
+make -C linux/uio check-emulate
+make -C linux/uio check-emulate-irq
+make -C linux/uio check-cmdq-host
+```
+
+These checks are especially useful when hardware access is limited.
+
+## Vivado Regression Entry Points
+
+Focused simulation entry points are available for the accelerator path:
+
+- `scripts/run_vivado_zybo_accel_mmio_sim.tcl`
+- `scripts/run_vivado_zybo_cmdq_frontend_sim.tcl`
+- `scripts/run_vivado_zybo_umem_axi_fetch_sim.tcl`
+- `scripts/run_vivado_zybo_cmdq_decode_sim.tcl`
+- `scripts/run_vivado_zybo_cmdq_dispatch_sim.tcl`
+- `scripts/run_vivado_zybo_npu_payload_fetch_sim.tcl`
+- `scripts/run_vivado_zybo_npu_exec_sim.tcl`
+- `scripts/run_vivado_zybo_npu_result_store_sim.tcl`
+- `scripts/run_vivado_zybo_npu_queue_path_sim.tcl`
+- `scripts/run_vivado_zybo_npu_queue_payload_path_sim.tcl`
+- `scripts/run_vivado_zybo_npu_queue_writeback_path_sim.tcl`
+- `scripts/run_vivado_zybo_npu_queue_runtime_mlp_sim.tcl`
+
+Each one is meant to verify one slice of the accelerator stack instead of
+pretending the whole hardware/software platform is finished.
+
+## Verification That Already Passes
+
+The repository already has useful, repeatable host-side proof points:
+
+- Python reference scripts compile and run
+- userspace demo builds cleanly
+- emulated MMIO regression passes
+- emulated IRQ regression passes
+- command-queue host producer regression passes
+
+That makes the repo much more credible than a pure scaffold with no runnable
+checks.
+
+## How This Repo Relates To The Basys Repo
+
+Some legacy files remain on purpose:
+
+- `top_basys3.v`
+- `constraints/basys3_top.xdc`
+- `monitor_shell_tb`
+- boot ROM / UART / SPI / PS2 scaffolding
+
+They are still useful as migration references. The board target of this repo,
+however, is **Zybo Z7-10**, not Basys 3.
+
+More detail:
+
+- [docs/MIGRATION_FROM_BASYS3.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/MIGRATION_FROM_BASYS3.md)
+- [docs/ARCHITECTURE_ZYBO.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/ARCHITECTURE_ZYBO.md)
+- [docs/ACCEL_COMMAND_QUEUE.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/ACCEL_COMMAND_QUEUE.md)
+- [docs/UNIFIED_MEMORY.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/UNIFIED_MEMORY.md)
+
+## Vivado Environment Notes
+
+Batch scripts try to locate Vivado in this order:
 
 1. `VIVADO_BIN`
 2. `%XILINX_VIVADO%\bin`
 3. `PATH`
 4. fallback local `E:\AMDDesignTools\2025.2\Vivado\bin`
 
-Neu muon di theo huong `PS + PL` de handoff sang Linux, uu tien:
+## Interview Summary
 
-```tcl
-source scripts/export_zybo_ps_xsa.tcl
-```
+If you need a short explanation:
 
-Script nay se export:
-
-```text
-build/hw/zybo_z7_10_ps_pl.xsa
-```
-
-Neu muon tao them block design `PS -> AXI-Lite -> accelerator bridge`, dung:
-
-```tcl
-source scripts/create_vivado_zybo_ps_project.tcl
-```
-
-Script nay tao `processing_system7_0`, noi `M_AXI_GP0` vao module ref `zybo_z7_10_ps_pl_top`, externalize cac cong debug co ban, va scaffold them duong `M_AXI_UMEM -> smartconnect -> S_AXI_HP0` de PL co the fetch descriptor tu `PS DDR`.
-
-Neu muon build PS/PL platform va export handoff `XSA`, dung:
-
-```tcl
-source scripts/export_zybo_ps_xsa.tcl
-```
-
-Script nay se:
-
-- tao lai project `PS -> PL`
-- build `synth_1` va `impl_1`
-- co gang export `build/hw/zybo_z7_10_ps_pl.xsa`
-- ghi summary vao `build/zybo_ps_xsa_status.txt`
-
-Neu muon test rieng register bridge cua accelerator trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_accel_mmio_sim.tcl
-```
-
-Bench `accel_mmio_regs_tb` se tu check:
-
-- AXI-Lite read/write co ban
-- default register map sau reset
-- tiny-model `NPU v2` voi 2 vector mau va logits/class golden
-- IRQ enable/status va line interrupt tong hop
-- clear + draw triangle cho `GPU 3D lite`
-- `pixel_count`, `area2`, `bbox`, va framebuffer rows mau
-- runtime-model NPU voi weights/bias duoc nap tu software
-- runtime MLP mode `0x81` voi hidden activation trong host emulation
-- snapshot register map dau tien giua `PS` va `PL`
-
-Neu muon test rieng command-queue frontend stub trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_cmdq_frontend_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `HEAD/TAIL/DOORBELL`
-- slot/offset fetch dau tien va thu hai
-- retire 2 descriptor va processed-count shadow
-
-Neu muon test rieng AXI read-fetch stub cua unified-memory path trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_umem_axi_fetch_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `ARADDR = UMEM_BASE + fetch_offset`
-- burst `8 beat x 32-bit` cho 1 descriptor `32-byte`
-- pack du lieu descriptor vao `desc_data_flat`
-- `fetch_ready`, `desc_done`, `desc_error`, va status cua fetch engine
-
-Neu muon test rieng descriptor decode stub trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_cmdq_decode_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- decode `GPU_DRAW_TRI`
-- decode `NPU_INFER`
-- count descriptor hop le va descriptor loi
-
-Neu muon test rieng dispatch stub trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_cmdq_dispatch_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- dispatch `GPU_CLEAR`
-- dispatch `GPU_DRAW_TRI`
-- dispatch `NPU_INFER`
-- latch invalid-opcode error va dispatch counters
-
-Neu muon test rieng NPU payload fetch stub trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_npu_payload_fetch_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- latch `model_id`, `seq_length`, `input/weight/output offset`
-- doc 2 burst AXI tu unified memory: `input` roi `weights/bias`
-- `fetch_count = 1`, `fetch_status = IDLE` sau 1 lenh `NPU_INFER`
-
-Neu muon test rieng NPU execute stub trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_npu_exec_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `NPU_INFER` sau dispatch phat `start pulse`
-- latch `model_id`, `seq_length`, `input/output offset`
-- `exec_status = 0x00018004` sau lan runtime-model dau tien
-- sticky error khi co dispatch moi trong luc NPU dang ban
-
-Neu muon test rieng NPU result store stub trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_npu_result_store_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `status/logit0/logit1/class/hidden0/hidden1` duoc latch thanh output payload `6 x 32-bit`
-- `AWADDR = UMEM_BASE + output_offset`, `AWLEN = 5`
-- burst write `6 beat` tren AXI write channel
-- `store_status = 0x00010004` sau lan writeback queue-driven dau tien
-
-Neu muon test rieng NPU queue path trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_npu_queue_path_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `NPU_INFER` di qua `dispatch -> exec -> npu_v2`
-- offset `input/weight/output` duoc latch dung
-- runtime model `0x80` cho ra `STATUS=0x4E008008`, `LOGIT0=20`, `LOGIT1=0`
-- `exec_status = 0x00018004` sau queue-driven launch dau tien
-
-Neu muon test rieng NPU queue payload path trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_npu_queue_payload_path_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `NPU_INFER` di qua `dispatch -> payload fetch -> exec -> npu_v2`
-- payload `input/weight/bias` duoc doc tu unified memory qua AXI read path roi moi vao datapath queue-driven
-- runtime model `0x80` van cho ra `STATUS=0x4E008008`, `LOGIT0=20`, `LOGIT1=0`
-
-Neu muon test rieng NPU queue writeback path trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_npu_queue_writeback_path_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `NPU_INFER` di tron duong `dispatch -> payload fetch -> exec -> npu_v2 -> result store`
-- output payload `status/logit0/logit1/class/hidden0/hidden1` duoc commit thanh `6 beat` AXI write burst
-- `store_last_awaddr = 0x10000480` va `store_status = 0x00010004`
-
-Neu muon test rieng NPU queue runtime-MLP path trong Vivado simulation, dung:
-
-```tcl
-source scripts/run_vivado_zybo_npu_queue_runtime_mlp_sim.tcl
-```
-
-Bench nay kiem tra:
-
-- `model_id = 0x81` di tron duong `dispatch -> payload fetch -> exec -> npu_v2 -> result store`
-- runtime payload `input/weights/bias` duoc doc tu unified memory qua AXI read path
-- ket qua `hidden0=12`, `hidden1=0`, `logit0=12`, `logit1=-12`
-- output payload `status/logit0/logit1/class/hidden0/hidden1` duoc commit thanh `6 beat` AXI write burst
-
-Neu can mot duong regression hoan toan tren host, khong can board hay UIO node, co the dung:
-
-```sh
-make -C linux/uio check-emulate
-make -C linux/uio check-emulate-irq
-make -C linux/uio check-cmdq-host
-```
-
-Che do nay chay `accel_mmio_demo --emulate`, verify built-in NPU, runtime NPU, GPU triangle raster, PBM export, va co ca duong IRQ emulation rieng.
-
-## File quan trong cho giai doan tiep theo
-
-- `scripts/create_vivado_zybo_project.tcl`
-- `rtl/top/zybo_z7_10_accel_shell.v`
-- `rtl/top/zybo_z7_10_ps_pl_top.v`
-- `rtl/accel/npu_v2_stub.v`
-- `rtl/accel/gpu3d_lite_stub.v`
-- `rtl/accel/accel_mmio_regs.v`
-- `rtl/accel/accel_cmdq_frontend_stub.v`
-- `rtl/accel/accel_umem_axi_fetch_stub.v`
-- `rtl/accel/accel_cmdq_desc_decode_stub.v`
-- `rtl/accel/accel_cmdq_dispatch_stub.v`
-- `rtl/accel/accel_npu_payload_fetch_stub.v`
-- `rtl/accel/accel_npu_cmd_exec_stub.v`
-- `rtl/accel/accel_npu_result_store_stub.v`
-- `tb/accel_mmio_regs_tb.v`
-- `tb/accel_cmdq_frontend_stub_tb.v`
-- `tb/accel_umem_axi_fetch_stub_tb.v`
-- `tb/accel_cmdq_desc_decode_stub_tb.v`
-- `tb/accel_cmdq_dispatch_stub_tb.v`
-- `tb/accel_npu_payload_fetch_stub_tb.v`
-- `tb/accel_npu_cmd_exec_stub_tb.v`
-- `tb/accel_npu_result_store_stub_tb.v`
-- `tb/accel_npu_queue_path_tb.v`
-- `tb/accel_npu_queue_payload_path_tb.v`
-- `tb/accel_npu_queue_writeback_path_tb.v`
-- `scripts/npu_v2_reference.py`
-- `scripts/npu_v2_pack_model.py`
-- `linux/uio/accel_cmdq_host.c`
-- `linux/include/accel_cmdq_host.h`
-- `docs/ARCHITECTURE_ZYBO.md`
-- `docs/ACCEL_MMIO_MAP.md`
-- `docs/ACCEL_COMMAND_QUEUE.md`
-- `docs/ROADMAP_ZYBO.md`
-- `docs/UNIFIED_MEMORY.md`
-- `linux/README.md`
-
-## Migration notes
-
-Repo Basys 3 cu van la nguon tham chieu cho:
-
-- boot ROM generator
-- monitor shell
-- SPI / PS2 / UART bring-up
-- regression `monitor_shell_tb`
-
-Nhung trong repo moi nay:
-
-- target board da doi sang `Zybo Z7-10`
-- `Linux` chay tren `PS`
-- `NPU-lite` cu chi con la tham chieu
-- `VGA text console` cu khong duoc coi la GPU nua
-- `GPU 3D lite` se la khoi render rieng
+> This repo is my Zybo Z7-10 migration track. Instead of building another small
+> FPGA computer, I am moving toward a Linux-on-PS plus accelerator-in-PL design,
+> with MMIO, unified-memory queue flow, host-side emulation, and focused Vivado
+> regressions for the NPU/GPU path.
