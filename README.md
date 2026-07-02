@@ -111,6 +111,45 @@ Script nay se:
 
 Luu y: day la `PL-first skeleton` cho project moi. No chua phai ban Linux/Zynq hoan chinh, nhung da la mot diem bat dau dung huong.
 
+## Build shell va export XSA
+
+Neu muon build shell `PL-first` de kiem tra top synthesis hien tai, dung:
+
+```bat
+scripts\run_vivado_build.bat
+```
+
+Bitstream shell du kien nam o:
+
+```text
+build\vivado_zybo\riscv_computer_zybo_z7_10.runs\impl_1\zybo_z7_10_accel_shell.bit
+```
+
+Neu muon nap shell nay len board qua JTAG, dung:
+
+```bat
+scripts\program_zybo_accel_shell.bat
+```
+
+Tat ca batch script trong repo se uu tien tim Vivado theo thu tu:
+
+1. `VIVADO_BIN`
+2. `%XILINX_VIVADO%\bin`
+3. `PATH`
+4. fallback local `E:\AMDDesignTools\2025.2\Vivado\bin`
+
+Neu muon di theo huong `PS + PL` de handoff sang Linux, uu tien:
+
+```tcl
+source scripts/export_zybo_ps_xsa.tcl
+```
+
+Script nay se export:
+
+```text
+build/hw/zybo_z7_10_ps_pl.xsa
+```
+
 Neu muon tao them block design `PS -> AXI-Lite -> accelerator bridge`, dung:
 
 ```tcl

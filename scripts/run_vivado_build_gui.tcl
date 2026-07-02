@@ -1,7 +1,8 @@
 set script_dir [file normalize [file dirname [info script]]]
 set repo_dir [file normalize [file join $script_dir ..]]
 set report_dir [file join $repo_dir build]
-set bitfile [file join $repo_dir build vivado risc_v_computer.runs impl_1 top_basys3.bit]
+set vivado_build_dir [file join $repo_dir build vivado_zybo]
+set project_name riscv_computer_zybo_z7_10
 set summary_file [file join $report_dir build_status.txt]
 
 proc timing_slack_or_na {args} {
@@ -30,7 +31,7 @@ proc apply_run_strategy {run_name strategy_name} {
 }
 
 cd $repo_dir
-source [file join $script_dir create_vivado_project.tcl]
+source [file join $script_dir create_vivado_zybo_project.tcl]
 
 reset_run synth_1
 reset_run impl_1
@@ -44,6 +45,8 @@ launch_runs impl_1 -to_step write_bitstream -jobs 4
 wait_on_run impl_1
 
 open_run impl_1
+set top_name [get_property top [get_filesets sources_1]]
+set bitfile [file join $vivado_build_dir ${project_name}.runs impl_1 ${top_name}.bit]
 file mkdir $report_dir
 report_timing_summary -file [file join $report_dir timing_summary_post_route.rpt]
 report_utilization -file [file join $report_dir utilization_post_route.rpt]
@@ -62,6 +65,7 @@ puts $summary_fh "synth_strategy=$synth_strategy"
 puts $summary_fh "impl_strategy=$impl_strategy"
 puts $summary_fh "worst_setup_slack_ns=$setup_slack"
 puts $summary_fh "worst_hold_slack_ns=$hold_slack"
+puts $summary_fh "top_name=$top_name"
 puts $summary_fh "bitfile=$bitfile"
 puts $summary_fh "bitfile_exists=[expr {[file exists $bitfile] ? 1 : 0}]"
 close $summary_fh
@@ -73,6 +77,7 @@ puts "  synth_strategy=$synth_strategy"
 puts "  impl_strategy=$impl_strategy"
 puts "  worst_setup_slack_ns=$setup_slack"
 puts "  worst_hold_slack_ns=$hold_slack"
+puts "  top_name=$top_name"
 puts "  bitfile=$bitfile"
 
 if {![file exists $bitfile]} {
