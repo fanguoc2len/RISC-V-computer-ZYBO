@@ -35,6 +35,36 @@ The long-term target is a heterogeneous platform where:
 This is why the repository still keeps some legacy PicoRV32 blocks: they are
 useful scaffolding while the migration is in progress.
 
+## System Architecture
+
+```mermaid
+flowchart LR
+    subgraph PS["Zynq Processing System"]
+        App["Linux userspace application"] --> UIO["UIO / MMIO helper"]
+        Memory["Shared-memory buffers"]
+    end
+
+    subgraph PL["Programmable Logic"]
+        Bridge["PS-PL MMIO bridge"] --> Queue["Command queue frontend"]
+        Queue --> Decode["Command decode and dispatch"]
+        Decode --> NPU["NPU queue path"]
+        Decode --> GPU["GPU-lite raster scaffold"]
+        NPU --> Writeback["Result writeback"]
+        GPU --> Writeback
+    end
+
+    UIO --> Bridge
+    Memory <--> Queue
+    Writeback --> Memory
+    Writeback -->|"completion IRQ"| UIO
+    Host["Host-side emulation tests"] -.-> UIO
+    Host -.-> Queue
+```
+
+The diagram shows the intended PS/PL data path. The MMIO, queue, accelerator
+stubs, writeback path, and host emulation exist today; full Linux and
+hardware-board validation remain roadmap items.
+
 ## Current Status
 
 This repository is currently a **foundation scaffold** with meaningful
