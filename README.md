@@ -185,10 +185,10 @@ however, is **Zybo Z7-10**, not Basys 3.
 
 More detail:
 
-- [docs/MIGRATION_FROM_BASYS3.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/MIGRATION_FROM_BASYS3.md)
-- [docs/ARCHITECTURE_ZYBO.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/ARCHITECTURE_ZYBO.md)
-- [docs/ACCEL_COMMAND_QUEUE.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/ACCEL_COMMAND_QUEUE.md)
-- [docs/UNIFIED_MEMORY.md](/home/fanguoc2len/code/RISC-V-computer-ZYBO/docs/UNIFIED_MEMORY.md)
+- [docs/MIGRATION_FROM_BASYS3.md](docs/MIGRATION_FROM_BASYS3.md)
+- [docs/ARCHITECTURE_ZYBO.md](docs/ARCHITECTURE_ZYBO.md)
+- [docs/ACCEL_COMMAND_QUEUE.md](docs/ACCEL_COMMAND_QUEUE.md)
+- [docs/UNIFIED_MEMORY.md](docs/UNIFIED_MEMORY.md)
 
 ## Vivado Environment Notes
 
@@ -199,9 +199,9 @@ Batch scripts try to locate Vivado in this order:
 3. `PATH`
 4. fallback local `E:\AMDDesignTools\2025.2\Vivado\bin`
 
-## Interview Summary
+## Project Summary
 
-If you need a short explanation:
+In summary:
 
 > This repo is my Zybo Z7-10 migration track. Instead of building another small
 > FPGA computer, I am moving toward a Linux-on-PS plus accelerator-in-PL design,
