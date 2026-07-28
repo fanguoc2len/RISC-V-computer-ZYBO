@@ -1,5 +1,7 @@
 # RISC-V / Accelerator Platform on Zybo Z7-10
 
+[![Host Emulation Checks](https://github.com/fanguoc2len/RISC-V-computer-ZYBO/actions/workflows/host-emulation.yml/badge.svg)](https://github.com/fanguoc2len/RISC-V-computer-ZYBO/actions/workflows/host-emulation.yml)
+
 This repository is the second branch of the project family. Unlike the Basys 3
 repo, this one is **not** a text-mode mini computer for Artix-7 bring-up. It is
 a `Zybo Z7-10` platform that moves toward:
